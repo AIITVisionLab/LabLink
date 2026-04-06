@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+desktop-release/
+desktop-release-final/
+desktop-release-portable-final/
+desktop-release-verify/
+android/
+*.exe
+*.asar

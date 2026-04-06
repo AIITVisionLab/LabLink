@@ -1,0 +1,8 @@
+{
+  "appId": "com.aiit.labmanagement",
+  "appName": "LabLink",
+  "webDir": "dist",
+  "server": {
+    "cleartext": true
+  }
+}
