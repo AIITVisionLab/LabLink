@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.annotation.Order;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
@@ -39,6 +40,7 @@ import java.util.stream.Collectors;
 
 @Component
 @Order(2)
+@ConditionalOnProperty(value = "app.schema.runtime-update-enabled", havingValue = "true", matchIfMissing = true)
 public class PlatformAttendanceSchemaRunner implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(PlatformAttendanceSchemaRunner.class);

@@ -4,6 +4,11 @@ server:
 spring:
   application:
     name: aiit-lab-management-platform
+  flyway:
+    enabled: ${APP_SCHEMA_MIGRATION_ENABLED:true}
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: ${DB_URL:jdbc:mysql://localhost:3306/lab_recruitment?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true}
@@ -102,3 +107,7 @@ app:
       enabled: false
     written-exam:
       enabled: false
+  schema:
+    runtime-update-enabled: ${APP_SCHEMA_RUNTIME_UPDATE_ENABLED:true}
+  search:
+    notice-fulltext-enabled: ${APP_SEARCH_NOTICE_FULLTEXT_ENABLED:true}

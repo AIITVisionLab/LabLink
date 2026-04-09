@@ -9,7 +9,10 @@ import com.lab.recruitment.mapper.NoticeMapper;
 import com.lab.recruitment.service.LabService;
 import com.lab.recruitment.service.NoticeService;
 import com.lab.recruitment.support.CurrentUserAccessor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -21,24 +24,39 @@ import java.util.Map;
 @Service
 public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> implements NoticeService {
 
+    private static final Logger log = LoggerFactory.getLogger(NoticeServiceImpl.class);
+
     @Autowired
     private CurrentUserAccessor currentUserAccessor;
 
     @Autowired
     private LabService labService;
 
+    @Value("${app.search.notice-fulltext-enabled:true}")
+    private boolean noticeFullTextEnabled;
+
     @Override
     public Page<Map<String, Object>> getNoticePage(Integer pageNum, Integer pageSize, String publishScope,
                                                    Long collegeId, Long labId, String keyword, User currentUser) {
         Long scopedLabId = labId;
         Long scopedCollegeId = collegeId;
+        String normalizedScope = normalizeScope(publishScope);
+        String normalizedKeyword = trimToNull(keyword);
         if (!currentUserAccessor.isSuperAdmin(currentUser) && currentUserAccessor.isLabScopedManager(currentUser)) {
             scopedLabId = currentUserAccessor.resolveLabScope(currentUser, labId);
             Lab currentLab = labService.getById(scopedLabId);
             scopedCollegeId = currentLab == null ? collegeId : currentLab.getCollegeId();
         }
-        return baseMapper.selectNoticePage(new Page<>(pageNum, pageSize), normalizeScope(publishScope),
-                scopedCollegeId, scopedLabId, trimToNull(keyword));
+        Page<Map<String, Object>> page = new Page<>(pageNum, pageSize);
+        if (!noticeFullTextEnabled || !StringUtils.hasText(normalizedKeyword)) {
+            return baseMapper.selectNoticePageByLike(page, normalizedScope, scopedCollegeId, scopedLabId, normalizedKeyword);
+        }
+        try {
+            return baseMapper.selectNoticePageByFullText(page, normalizedScope, scopedCollegeId, scopedLabId, normalizedKeyword);
+        } catch (Exception ex) {
+            log.warn("notice fulltext search fallback to like query, reason: {}", ex.getMessage());
+            return baseMapper.selectNoticePageByLike(page, normalizedScope, scopedCollegeId, scopedLabId, normalizedKeyword);
+        }
     }
 
     @Override
@@ -53,7 +71,7 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
             }
         }
         if (currentUser != null && currentUserAccessor.isSuperAdmin(currentUser)) {
-            return baseMapper.selectNoticePage(new Page<>(1, limit), null, null, null, null).getRecords();
+            return baseMapper.selectNoticePageByLike(new Page<>(1, limit), null, null, null, null).getRecords();
         }
         return baseMapper.selectLatestNotices(Math.max(limit, 1), collegeId, labId);
     }
