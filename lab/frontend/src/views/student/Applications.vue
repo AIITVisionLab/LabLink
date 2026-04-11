@@ -26,7 +26,7 @@
       </el-form>
     </section>
 
-    <el-card shadow="never" class="panel-card">
+    <TablePageCard title="申请记录" subtitle="状态跟踪" :count-label="`${pagination.total} 条`">
       <div v-if="isMobile" v-loading="loading" class="apply-mobile-list">
         <template v-if="applies.length">
           <article v-for="row in applies" :key="row.id" class="apply-mobile-card">
@@ -35,7 +35,7 @@
                 <strong>{{ row.labName || '未命名实验室' }}</strong>
                 <span>{{ row.planTitle || '未命名招新计划' }}</span>
               </div>
-              <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+              <StatusTag :value="row.status" preset="apply" />
             </div>
 
             <div class="apply-mobile-meta">
@@ -61,7 +61,7 @@
         <el-table-column prop="planTitle" label="招新计划" min-width="180" />
         <el-table-column prop="status" label="状态" min-width="120">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+            <StatusTag :value="row.status" preset="apply" />
           </template>
         </el-table-column>
         <el-table-column prop="applyReason" label="申请理由" min-width="240" show-overflow-tooltip />
@@ -71,7 +71,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-row">
+      <template #pagination>
         <el-pagination
           background
           layout="prev, pager, next, total"
@@ -80,8 +80,8 @@
           :total="pagination.total"
           @current-change="handlePageChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
   </div>
 </template>
 
@@ -89,6 +89,8 @@
 import dayjs from 'dayjs'
 import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { getMyLabApplyPage } from '@/api/labApplies'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 
 const loading = ref(false)
 const applies = ref([])
@@ -128,26 +130,6 @@ const handlePageChange = (page) => {
   loadApplies()
 }
 
-const statusLabel = (status) => {
-  const map = {
-    submitted: '待审核',
-    leader_approved: '初审通过',
-    approved: '已通过',
-    rejected: '已驳回'
-  }
-  return map[status] || status || '-'
-}
-
-const statusTagType = (status) => {
-  const map = {
-    submitted: 'warning',
-    leader_approved: 'primary',
-    approved: 'success',
-    rejected: 'danger'
-  }
-  return map[status] || 'info'
-}
-
 const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
 
 onMounted(() => {
@@ -162,12 +144,6 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
-}
-
 .apply-mobile-list {
   display: grid;
   gap: 14px;
@@ -222,8 +198,8 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
-  .pagination-row {
-    justify-content: center;
+  .apply-mobile-head {
+    flex-direction: column;
   }
 }
 </style>

@@ -64,7 +64,7 @@ public class LabSpaceController {
             Long scopedLabId = resolveReadableLabId(currentUser, labId);
             Lab lab = labService.getById(scopedLabId);
             if (lab == null) {
-                return Result.error("Lab not found");
+                return Result.error("实验室不存在");
             }
 
             QueryWrapper<User> memberQuery = new QueryWrapper<>();
@@ -159,7 +159,7 @@ public class LabSpaceController {
             User currentUser = getCurrentUser();
             if (!currentUserAccessor.isAdmin(currentUser) && !currentUserAccessor.isTeacherIdentity(currentUser)) {
                 if (currentUser.getLabId() == null) {
-                    return Result.error("You have not joined any lab");
+                    return Result.error("你尚未加入任何实验室");
                 }
                 return Result.success(labAttendanceService.getAttendanceSummary(currentUser.getLabId(), currentUser.getId()));
             }
@@ -176,7 +176,7 @@ public class LabSpaceController {
         try {
             User currentUser = getCurrentUser();
             if (currentUser.getLabId() == null) {
-                return Result.error("You have not joined any lab");
+                return Result.error("你尚未加入任何实验室");
             }
             String attendanceDate = request.get("attendanceDate") == null
                     ? LocalDate.now().toString()
@@ -347,13 +347,13 @@ public class LabSpaceController {
         User currentUser = getCurrentUser();
         if (currentUserAccessor.isSuperAdmin(currentUser)) {
             if (labId == null) {
-                throw new RuntimeException("Lab id is required");
+                throw new RuntimeException("实验室 ID 不能为空");
             }
             currentUser.setLabId(currentUserAccessor.resolveLabScope(currentUser, labId));
             return currentUser;
         }
         if (!currentUserAccessor.isLabManager(currentUser)) {
-            throw new RuntimeException("Only lab managers can access this function");
+            throw new RuntimeException("仅实验室管理员可访问该功能");
         }
         currentUser.setLabId(currentUserAccessor.resolveLabScope(currentUser, null));
         return currentUser;
@@ -361,7 +361,7 @@ public class LabSpaceController {
 
     private User resolveExitAuditOperator(Long exitApplicationId) {
         if (exitApplicationId == null) {
-            throw new RuntimeException("Exit application id is required");
+            throw new RuntimeException("退组申请 ID 不能为空");
         }
         User currentUser = getCurrentUser();
         if (currentUserAccessor.isLabManager(currentUser)) {
@@ -371,12 +371,12 @@ public class LabSpaceController {
         if (currentUserAccessor.isSuperAdmin(currentUser)) {
             LabExitApplication application = labExitApplicationService.getById(exitApplicationId);
             if (application == null) {
-                throw new RuntimeException("Exit application not found");
+                throw new RuntimeException("退组申请不存在");
             }
             currentUser.setLabId(currentUserAccessor.resolveLabScope(currentUser, application.getLabId()));
             return currentUser;
         }
-        throw new RuntimeException("Only lab managers can access this function");
+        throw new RuntimeException("仅实验室管理员可访问该功能");
     }
 
     private User getCurrentUser() {
@@ -402,10 +402,10 @@ public class LabSpaceController {
     private Long resolveReadableLabId(User currentUser, Long requestedLabId) {
         if (!currentUserAccessor.isAdmin(currentUser) && !currentUserAccessor.isTeacherIdentity(currentUser)) {
             if (currentUser.getLabId() == null) {
-                throw new RuntimeException("Current account is not bound to any lab");
+                throw new RuntimeException("当前账号未绑定任何实验室");
             }
             if (requestedLabId != null && !currentUser.getLabId().equals(requestedLabId)) {
-                throw new RuntimeException("No permission to access another lab");
+                throw new RuntimeException("无权访问其他实验室的数据");
             }
             return currentUser.getLabId();
         }

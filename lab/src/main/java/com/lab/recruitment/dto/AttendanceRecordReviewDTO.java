@@ -18,4 +18,6 @@ public class AttendanceRecordReviewDTO {
     private String signStatus;
 
     private String remark;
+
+    private String changedReason;
 }

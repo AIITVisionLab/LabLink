@@ -12,6 +12,7 @@ import com.lab.recruitment.entity.User;
 import com.lab.recruitment.mapper.DeliveryMapper;
 import com.lab.recruitment.mapper.UserMapper;
 import com.lab.recruitment.service.EmailAuthCodeService;
+import com.lab.recruitment.service.PlatformCacheService;
 import com.lab.recruitment.service.TeacherRegisterApplyService;
 import com.lab.recruitment.service.UserAccessService;
 import com.lab.recruitment.service.UserService;
@@ -54,6 +55,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Autowired
     private UserAccessService userAccessService;
+
+    @Autowired
+    private PlatformCacheService platformCacheService;
 
     @Autowired
     @Lazy
@@ -110,7 +114,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         normalizeUserFields(user);
         validateUserForCreate(user);
         ensureUserUniqueBeforeCreate(user);
-        return super.save(user);
+        boolean success = super.save(user);
+        if (success && user != null && user.getId() != null) {
+            platformCacheService.evictUserAuthCache(user.getId());
+        }
+        return success;
     }
 
     @Override
@@ -127,7 +135,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         normalizeUserFields(user);
         validateUserForUpdate(user, existingUser);
         ensureUserUniqueBeforeUpdate(user, existingUser);
-        return super.updateById(user);
+        boolean success = super.updateById(user);
+        if (success) {
+            platformCacheService.evictUserAuthCache(user.getId());
+        }
+        return success;
     }
 
     @Override
@@ -159,7 +171,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         loginVO.setUsername(user.getUsername());
         loginVO.setRealName(user.getRealName());
         loginVO.setRole(profile.getDisplayRole());
-        loginVO.setLabId(profile.getManagedLabId() != null ? profile.getManagedLabId() : user.getLabId());
+        Long resolvedLabId = userAccessService.resolveManagedLabId(user);
+        loginVO.setLabId(resolvedLabId != null ? resolvedLabId : user.getLabId());
         loginVO.setAvatar(user.getAvatar());
         loginVO.setPrimaryIdentity(profile.getPrimaryIdentity());
         loginVO.setLabMemberRole(profile.getLabMemberRole());
@@ -267,14 +280,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public Page<User> getStudentPageForAdmin(Integer pageNum, Integer pageSize, String keyword, String realName, String studentId, String major, Long labId) {
+    public Page<User> getStudentPageForAdmin(Integer pageNum, Integer pageSize, String keyword, String realName,
+                                             String studentId, String major, Long collegeId, Long labId) {
         long current = Math.max(pageNum, 1);
         long size = Math.max(pageSize, 1);
         long offset = (current - 1) * size;
 
         Page<User> page = new Page<>(current, size);
-        page.setRecords(baseMapper.selectStudentPageForAdmin(offset, (int) size, keyword, realName, studentId, major, labId));
-        page.setTotal(baseMapper.countStudentPageForAdmin(keyword, realName, studentId, major, labId));
+        page.setRecords(baseMapper.selectStudentPageForAdmin(offset, (int) size, keyword, realName, studentId, major, collegeId, labId));
+        page.setTotal(baseMapper.countStudentPageForAdmin(keyword, realName, studentId, major, collegeId, labId));
         return page;
     }
 

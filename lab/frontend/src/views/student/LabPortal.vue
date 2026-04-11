@@ -2,7 +2,7 @@
   <div class="lab-portal">
     <el-empty
       v-if="!loadingOverview && !overview.lab"
-      description="你当前还没有加入实验室"
+      description="你还没有加入实验室。"
     />
 
     <template v-else>
@@ -18,11 +18,11 @@
                 <p class="hero-eyebrow">实验室空间</p>
                 <h2>{{ overview.lab?.labName }}</h2>
                 <p class="hero-desc">
-                  {{ overview.lab?.labDesc || '当前实验室暂未填写详细介绍。' }}
+                  {{ overview.lab?.labDesc || '该实验室暂未补充详细介绍。' }}
                 </p>
                 <div class="hero-meta">
-                  <span>指导老师：{{ overview.lab?.advisors || '未填写' }}</span>
-                  <span>当前管理员：{{ overview.lab?.currentAdmins || '未填写' }}</span>
+                  <span>指导教师：{{ overview.lab?.advisors || '暂未填写' }}</span>
+                  <span>当前管理员：{{ overview.lab?.currentAdmins || '暂未填写' }}</span>
                 </div>
               </div>
 
@@ -39,7 +39,7 @@
             </div>
 
             <div v-if="overview.members.length" class="member-list">
-              <span class="member-label">实验室成员</span>
+              <span class="member-label">成员</span>
               <el-tag
                 v-for="member in overview.members"
                 :key="member.id"
@@ -54,39 +54,40 @@
       </el-skeleton>
 
       <el-tabs v-model="activeTab" class="portal-tabs">
-        <el-tab-pane label="设备借用" name="equipment">
-          <el-card shadow="never">
-            <template #header>
-              <div class="section-header">
-                <span>实验室设备</span>
-                <el-button type="primary" @click="fetchEquipment">刷新</el-button>
-              </div>
+        <el-tab-pane label="设备" name="equipment">
+          <TablePageCard
+            title="实验室设备"
+            subtitle="设备借用"
+            :count-label="`${equipmentPagination.total} 项`"
+          >
+            <template #header-extra>
+              <el-button type="primary" @click="fetchEquipment">刷新</el-button>
             </template>
 
-            <el-form :inline="true" :model="equipmentSearch" class="toolbar">
-              <el-form-item label="设备名称">
-                <el-input
-                  v-model="equipmentSearch.name"
-                  clearable
-                  placeholder="请输入设备名称"
-                  @keyup.enter="handleEquipmentSearch"
-                />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" @click="handleEquipmentSearch">搜索</el-button>
-              </el-form-item>
-            </el-form>
+            <template #filters>
+              <el-form :inline="true" :model="equipmentSearch" class="toolbar">
+                <el-form-item label="设备名称">
+                  <el-input
+                    v-model="equipmentSearch.name"
+                    clearable
+                    placeholder="请输入设备名称"
+                    @keyup.enter="handleEquipmentSearch"
+                  />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="handleEquipmentSearch">搜索</el-button>
+                </el-form-item>
+              </el-form>
+            </template>
 
             <el-table :data="equipmentList" border stripe>
-              <el-table-column prop="name" label="设备名称" min-width="180" />
+              <el-table-column prop="name" label="设备" min-width="180" />
               <el-table-column prop="type" label="类型" width="140" />
-              <el-table-column prop="serialNumber" label="编号" width="180" />
+              <el-table-column prop="serialNumber" label="序列号" width="180" />
               <el-table-column prop="description" label="说明" min-width="220" show-overflow-tooltip />
               <el-table-column label="状态" width="120">
                 <template #default="{ row }">
-                  <el-tag :type="getEquipmentStatusType(row.status)">
-                    {{ getEquipmentStatusText(row.status) }}
-                  </el-tag>
+                  <StatusTag :value="row.status" :label-map="equipmentStatusLabels" :type-map="equipmentStatusTypes" />
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="140" fixed="right">
@@ -103,7 +104,7 @@
               </el-table-column>
             </el-table>
 
-            <div class="pagination">
+            <template #pagination>
               <el-pagination
                 v-model:current-page="equipmentPagination.current"
                 v-model:page-size="equipmentPagination.size"
@@ -111,15 +112,17 @@
                 layout="total, prev, pager, next"
                 @current-change="fetchEquipment"
               />
-            </div>
-          </el-card>
+            </template>
+          </TablePageCard>
 
-          <el-card class="sub-card" shadow="never">
-            <template #header>
-              <div class="section-header">
-                <span>我的设备借用记录</span>
-                <el-button @click="fetchMyBorrowList">刷新</el-button>
-              </div>
+          <TablePageCard
+            class="sub-card"
+            title="我的借用记录"
+            subtitle="借用进度"
+            :count-label="`${borrowPagination.total} 条`"
+          >
+            <template #header-extra>
+              <el-button @click="fetchMyBorrowList">刷新</el-button>
             </template>
 
             <el-table :data="myBorrowList" border stripe>
@@ -131,17 +134,15 @@
               <el-table-column prop="reason" label="借用原因" min-width="220" show-overflow-tooltip />
               <el-table-column label="状态" width="120">
                 <template #default="{ row }">
-                  <el-tag :type="getBorrowStatusType(row.status)">
-                    {{ getBorrowStatusText(row.status) }}
-                  </el-tag>
+                  <StatusTag :value="row.status" :label-map="borrowStatusLabels" :type-map="borrowStatusTypes" />
                 </template>
               </el-table-column>
-              <el-table-column prop="createTime" label="申请时间" width="180" />
+              <el-table-column prop="createTime" label="提交时间" width="180" />
               <el-table-column prop="borrowTime" label="借出时间" width="180" />
               <el-table-column prop="returnTime" label="归还时间" width="180" />
             </el-table>
 
-            <div class="pagination">
+            <template #pagination>
               <el-pagination
                 v-model:current-page="borrowPagination.current"
                 v-model:page-size="borrowPagination.size"
@@ -149,17 +150,18 @@
                 layout="total, prev, pager, next"
                 @current-change="fetchMyBorrowList"
               />
-            </div>
-          </el-card>
+            </template>
+          </TablePageCard>
         </el-tab-pane>
 
-        <el-tab-pane label="每日打卡" name="attendance">
-          <el-card shadow="never">
-            <template #header>
-              <div class="section-header">
-                <span>我的打卡记录</span>
-                <el-button @click="fetchMyAttendance">刷新</el-button>
-              </div>
+        <el-tab-pane label="考勤" name="attendance">
+          <TablePageCard
+            title="我的考勤"
+            subtitle="日常签到"
+            :count-label="`${attendancePagination.total} 条`"
+          >
+            <template #header-extra>
+              <el-button @click="fetchMyAttendance">刷新</el-button>
             </template>
 
             <el-alert
@@ -173,16 +175,14 @@
               <el-table-column prop="attendanceDate" label="日期" width="140" />
               <el-table-column label="状态" width="120">
                 <template #default="{ row }">
-                  <el-tag :type="getAttendanceStatusType(row.status)">
-                    {{ getAttendanceStatusText(row.status) }}
-                  </el-tag>
+                  <StatusTag :value="row.status" :label-map="attendanceStatusLabels" :type-map="attendanceStatusTypes" />
                 </template>
               </el-table-column>
-              <el-table-column prop="reason" label="备注/原因" min-width="220" show-overflow-tooltip />
+              <el-table-column prop="reason" label="备注 / 原因" min-width="220" show-overflow-tooltip />
               <el-table-column prop="confirmTime" label="确认时间" width="180" />
             </el-table>
 
-            <div class="pagination">
+            <template #pagination>
               <el-pagination
                 v-model:current-page="attendancePagination.current"
                 v-model:page-size="attendancePagination.size"
@@ -190,35 +190,36 @@
                 layout="total, prev, pager, next"
                 @current-change="fetchMyAttendance"
               />
-            </div>
-          </el-card>
+            </template>
+          </TablePageCard>
         </el-tab-pane>
 
-        <el-tab-pane label="退出申请" name="exit">
-          <el-card shadow="never">
-            <template #header>
-              <div class="section-header">
-                <span>实验室退出申请</span>
-                <el-button @click="fetchMyExitApplications">刷新</el-button>
-              </div>
+        <el-tab-pane label="退组申请" name="exit">
+          <TablePageCard
+            title="退出当前实验室"
+            subtitle="成员流转"
+            :count-label="`${exitPagination.total} 条`"
+          >
+            <template #header-extra>
+              <el-button @click="fetchMyExitApplications">刷新</el-button>
             </template>
 
             <el-alert
-              title="正式成员如需退出当前实验室或准备申请其他实验室，请先提交退出申请，管理员审核通过后恢复为普通学生。"
+              title="如果你希望退出当前实验室后再申请其他实验室，请先提交退组申请。审核通过后，账号会恢复为普通学生状态。"
               type="warning"
               :closable="false"
               show-icon
             />
 
             <el-form class="top-gap" label-position="top">
-              <el-form-item label="申请原因">
+              <el-form-item label="原因">
                 <el-input
                   v-model="exitReason"
                   type="textarea"
                   :rows="4"
                   maxlength="300"
                   show-word-limit
-                  placeholder="请填写退出原因或后续计划"
+                  placeholder="请说明退组原因或下一步计划"
                 />
               </el-form-item>
               <el-form-item>
@@ -227,36 +228,35 @@
                   :disabled="hasPendingExitApplication"
                   @click="submitExitRequest"
                 >
-                  提交退出申请
+                  提交退组申请
                 </el-button>
                 <span v-if="hasPendingExitApplication" class="hint-text">
-                  当前已有待审核申请，请等待管理员处理。
+                  当前已有待审核的退组申请，请等待处理后再提交新的申请。
                 </span>
               </el-form-item>
             </el-form>
-          </el-card>
+          </TablePageCard>
 
-          <el-card class="sub-card" shadow="never">
-            <template #header>
-              <span>我的退出申请记录</span>
-            </template>
-
+          <TablePageCard
+            class="sub-card"
+            title="我的退组记录"
+            subtitle="审核进度"
+            :count-label="`${exitPagination.total} 条`"
+          >
             <el-table :data="exitApplications" border stripe>
               <el-table-column prop="labName" label="实验室" min-width="180" />
-              <el-table-column prop="reason" label="申请原因" min-width="220" show-overflow-tooltip />
+              <el-table-column prop="reason" label="原因" min-width="220" show-overflow-tooltip />
               <el-table-column label="状态" width="120">
                 <template #default="{ row }">
-                  <el-tag :type="getExitStatusType(row.status)">
-                    {{ getExitStatusText(row.status) }}
-                  </el-tag>
+                  <StatusTag :value="row.status" :label-map="exitStatusLabels" :type-map="exitStatusTypes" />
                 </template>
               </el-table-column>
-              <el-table-column prop="auditRemark" label="审核备注" min-width="180" show-overflow-tooltip />
-              <el-table-column prop="createTime" label="申请时间" width="180" />
+              <el-table-column prop="auditRemark" label="审核意见" min-width="180" show-overflow-tooltip />
+              <el-table-column prop="createTime" label="提交时间" width="180" />
               <el-table-column prop="auditTime" label="审核时间" width="180" />
             </el-table>
 
-            <div class="pagination">
+            <template #pagination>
               <el-pagination
                 v-model:current-page="exitPagination.current"
                 v-model:page-size="exitPagination.size"
@@ -264,15 +264,15 @@
                 layout="total, prev, pager, next"
                 @current-change="fetchMyExitApplications"
               />
-            </div>
-          </el-card>
+            </template>
+          </TablePageCard>
         </el-tab-pane>
       </el-tabs>
     </template>
 
-    <el-dialog v-model="borrowDialog.visible" title="设备借用申请" width="480px">
+    <el-dialog v-model="borrowDialog.visible" title="借用设备" width="480px">
       <el-form label-position="top">
-        <el-form-item label="设备名称">
+        <el-form-item label="设备">
           <el-input :model-value="borrowDialog.equipmentName" disabled />
         </el-form-item>
         <el-form-item label="借用原因">
@@ -282,14 +282,14 @@
             :rows="4"
             maxlength="200"
             show-word-limit
-            placeholder="请填写借用原因"
+            placeholder="请说明借用该设备的用途"
           />
         </el-form-item>
       </el-form>
 
       <template #footer>
         <el-button @click="borrowDialog.visible = false">取消</el-button>
-        <el-button type="primary" @click="submitBorrow">提交申请</el-button>
+        <el-button type="primary" @click="submitBorrow">提交</el-button>
       </template>
     </el-dialog>
   </div>
@@ -305,6 +305,8 @@ import {
   getMyExitApplications,
   submitExitApplication
 } from '@/api/labSpace'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 
 const activeTab = ref('equipment')
 const loadingOverview = ref(true)
@@ -317,6 +319,48 @@ const overview = reactive({
 const equipmentSearch = reactive({
   name: ''
 })
+const equipmentStatusLabels = {
+  0: '闲置',
+  1: '借出中',
+  2: '维修中'
+}
+const equipmentStatusTypes = {
+  0: 'success',
+  1: 'warning',
+  2: 'danger'
+}
+const borrowStatusLabels = {
+  0: '待审批',
+  1: '已借出',
+  2: '已驳回',
+  3: '已归还'
+}
+const borrowStatusTypes = {
+  0: 'info',
+  1: 'primary',
+  2: 'danger',
+  3: 'success'
+}
+const attendanceStatusLabels = {
+  0: '待确认',
+  1: '已出勤',
+  2: '缺勤'
+}
+const attendanceStatusTypes = {
+  0: 'info',
+  1: 'success',
+  2: 'danger'
+}
+const exitStatusLabels = {
+  0: '待审核',
+  1: '已通过',
+  2: '已驳回'
+}
+const exitStatusTypes = {
+  0: 'warning',
+  1: 'success',
+  2: 'danger'
+}
 const equipmentList = ref([])
 const equipmentMap = ref({})
 const equipmentPagination = reactive({ current: 1, size: 10, total: 0 })
@@ -351,9 +395,9 @@ const todayAttendance = computed(() =>
 )
 const todayAttendanceTitle = computed(() => {
   if (!todayAttendance.value) {
-    return '今日打卡状态：等待管理员确认'
+    return '今日状态：等待管理员确认'
   }
-  return `今日打卡状态：${getAttendanceStatusText(todayAttendance.value.status)}`
+  return `今日状态：${getAttendanceStatusText(todayAttendance.value.status)}`
 })
 const todayAttendanceType = computed(() => {
   if (!todayAttendance.value) {
@@ -444,7 +488,7 @@ const openBorrowDialog = (row) => {
 
 const submitBorrow = async () => {
   if (!borrowDialog.reason.trim()) {
-    ElMessage.warning('请填写借用原因')
+    ElMessage.warning('请先填写借用原因')
     return
   }
 
@@ -460,14 +504,14 @@ const submitBorrow = async () => {
 
 const submitExitRequest = async () => {
   if (!exitReason.value.trim()) {
-    ElMessage.warning('请填写退出原因')
+    ElMessage.warning('请先填写退组原因')
     return
   }
 
   await submitExitApplication({
     reason: exitReason.value.trim()
   })
-  ElMessage.success('退出申请已提交，请等待管理员审核')
+  ElMessage.success('退组申请已提交')
   exitReason.value = ''
   fetchMyExitApplications()
 }
@@ -476,35 +520,9 @@ const getEquipmentName = (equipmentId) => {
   return equipmentMap.value[equipmentId] || `设备 #${equipmentId}`
 }
 
-const getEquipmentStatusText = (status) => {
-  if (status === 1) return '借用中'
-  if (status === 2) return '维修中'
-  return '空闲'
-}
-
-const getEquipmentStatusType = (status) => {
-  if (status === 1) return 'warning'
-  if (status === 2) return 'danger'
-  return 'success'
-}
-
-const getBorrowStatusText = (status) => {
-  if (status === 1) return '已借出'
-  if (status === 2) return '已拒绝'
-  if (status === 3) return '已归还'
-  return '申请中'
-}
-
-const getBorrowStatusType = (status) => {
-  if (status === 1) return 'primary'
-  if (status === 2) return 'danger'
-  if (status === 3) return 'success'
-  return 'info'
-}
-
 const getAttendanceStatusText = (status) => {
-  if (status === 1) return '已到'
-  if (status === 2) return '未到'
+  if (status === 1) return '已出勤'
+  if (status === 2) return '缺勤'
   return '待确认'
 }
 
@@ -514,21 +532,9 @@ const getAttendanceStatusType = (status) => {
   return 'info'
 }
 
-const getExitStatusText = (status) => {
-  if (status === 1) return '已通过'
-  if (status === 2) return '已拒绝'
-  return '待审核'
-}
-
-const getExitStatusType = (status) => {
-  if (status === 1) return 'success'
-  if (status === 2) return 'danger'
-  return 'warning'
-}
-
 const getLabStatusText = (status) => {
   if (status === 1) return '招新中'
-  if (status === 2) return '已结束'
+  if (status === 2) return '已关闭'
   return '未开始'
 }
 
@@ -639,20 +645,7 @@ onMounted(async () => {
   margin-bottom: 16px;
 }
 
-.section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
 .sub-card {
-  margin-top: 16px;
-}
-
-.pagination {
-  display: flex;
-  justify-content: flex-end;
   margin-top: 16px;
 }
 

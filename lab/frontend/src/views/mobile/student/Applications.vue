@@ -1,7 +1,7 @@
-<template>
+﻿<template>
   <div class="m-page">
-    <section class="filters">
-      <el-select v-model="status" clearable placeholder="全部状态" style="width: 100%">
+    <section class="toolbar-card">
+      <el-select v-model="status" clearable placeholder="全部状态" style="width: 100%" @change="resetAndFetch">
         <el-option label="待审核" value="submitted" />
         <el-option label="初审通过" value="leader_approved" />
         <el-option label="已通过" value="approved" />
@@ -10,85 +10,55 @@
       <el-button plain :loading="loading" @click="resetAndFetch">刷新</el-button>
     </section>
 
-    <section v-loading="loading" class="list">
-      <article v-for="row in applies" :key="row.id" class="card">
+    <section class="card-list">
+      <article v-for="row in applies" :key="row.id" class="apply-card">
         <div class="card-head">
-          <div class="title">
+          <div>
             <strong>{{ row.labName || '未命名实验室' }}</strong>
-            <span>{{ row.planTitle || '招新计划' }}</span>
+            <p>{{ row.planTitle || '招新计划' }}</p>
           </div>
-          <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+          <span class="status-pill" :class="statusClass(row.status)">{{ statusLabel(row.status) }}</span>
         </div>
-        <div class="meta">
-          <span>提交时间：{{ formatDateTime(row.createTime) }}</span>
-        </div>
-        <div class="section">
+        <p>提交时间：{{ formatDateTime(row.createTime) }}</p>
+        <div class="section-block">
           <label>申请理由</label>
-          <p>{{ row.applyReason || '暂无申请理由' }}</p>
+          <div>{{ row.applyReason || '未填写' }}</div>
         </div>
-        <div class="section">
+        <div class="section-block">
           <label>审核意见</label>
-          <p>{{ row.auditComment || '暂未反馈审核意见' }}</p>
+          <div>{{ row.auditComment || '暂未返回审核意见' }}</div>
         </div>
       </article>
 
-      <el-empty v-if="!loading && applies.length === 0" description="暂无申请记录" :image-size="80" />
-
-      <div class="load-more">
-        <el-button v-if="hasMore" plain :loading="loadingMore" @click="fetchMore">加载更多</el-button>
-        <span v-else-if="applies.length" class="no-more">已到底</span>
-      </div>
+      <el-empty v-if="!loading && applies.length === 0" description="暂无申请记录" :image-size="84" />
     </section>
+
+    <div class="load-more">
+      <el-button v-if="hasMore" plain :loading="loadingMore" @click="fetchMore">加载更多</el-button>
+      <span v-else-if="applies.length" class="muted">已经到底了</span>
+    </div>
   </div>
 </template>
 
 <script setup>
 import dayjs from 'dayjs'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { getMyLabApplyPage } from '@/api/labApplies'
 
 const status = ref('')
 const loading = ref(false)
 const loadingMore = ref(false)
-
 const pageNum = ref(1)
 const pageSize = 10
 const total = ref(0)
 const applies = ref([])
 
-const hasMore = computed(() => applies.value.length < (total.value || 0))
-
-const statusLabel = (value) => {
-  const map = {
-    submitted: '待审核',
-    leader_approved: '初审通过',
-    approved: '已通过',
-    rejected: '已驳回'
-  }
-  return map[value] || value || '-'
-}
-
-const statusTagType = (value) => {
-  const map = {
-    submitted: 'warning',
-    leader_approved: 'primary',
-    approved: 'success',
-    rejected: 'danger'
-  }
-  return map[value] || 'info'
-}
-
-const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
+const hasMore = computed(() => applies.value.length < total.value)
 
 const fetchPage = async (page) => {
-  const res = await getMyLabApplyPage({
-    pageNum: page,
-    pageSize,
-    status: status.value || undefined
-  })
-  const pageData = res.data || {}
-  total.value = pageData.total || 0
-  return pageData.records || []
+  const response = await getMyLabApplyPage({ pageNum: page, pageSize, status: status.value || undefined })
+  total.value = Number(response.data?.total || 0)
+  return response.data?.records || []
 }
 
 const resetAndFetch = async () => {
@@ -102,24 +72,35 @@ const resetAndFetch = async () => {
 }
 
 const fetchMore = async () => {
-  if (loadingMore.value || !hasMore.value) return
+  if (loadingMore.value || !hasMore.value) {
+    return
+  }
   loadingMore.value = true
   try {
-    const next = pageNum.value + 1
-    const records = await fetchPage(next)
-    pageNum.value = next
-    applies.value = applies.value.concat(records)
+    const nextPage = pageNum.value + 1
+    const list = await fetchPage(nextPage)
+    pageNum.value = nextPage
+    applies.value = applies.value.concat(list)
   } finally {
     loadingMore.value = false
   }
 }
 
-watch(
-  () => status.value,
-  () => {
-    resetAndFetch()
-  }
-)
+const statusLabel = (value) => ({
+  submitted: '待审核',
+  leader_approved: '初审通过',
+  approved: '已通过',
+  rejected: '已驳回'
+}[value] || value || '-')
+
+const statusClass = (value) => ({
+  submitted: 'pending',
+  leader_approved: 'progress',
+  approved: 'success',
+  rejected: 'danger'
+}[value] || 'default')
+
+const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
 
 onMounted(() => {
   resetAndFetch()
@@ -128,91 +109,103 @@ onMounted(() => {
 
 <style scoped>
 .m-page {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.filters {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: center;
+  gap: 14px;
 }
 
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.card {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
+.toolbar-card,
+.apply-card {
   border-radius: 18px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(226, 232, 240, 0.92);
+}
+
+.toolbar-card {
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.apply-card {
+  padding: 14px;
+  display: grid;
+  gap: 10px;
 }
 
 .card-head {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
-.title {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.title strong {
+.card-head strong,
+.section-block label {
   color: #0f172a;
-  font-size: 15px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.title span {
+.card-head p,
+.apply-card p,
+.section-block div,
+.muted {
   color: #64748b;
-  font-size: 12px;
 }
 
-.meta {
-  color: #64748b;
-  font-size: 12px;
+.card-head p,
+.apply-card p {
+  margin: 6px 0 0;
 }
 
-.section {
+.section-block {
   display: grid;
   gap: 6px;
 }
 
-.section label {
-  color: #0f766e;
-  font-size: 12px;
+.section-block label {
   font-weight: 700;
+  font-size: 13px;
 }
 
-.section p {
-  color: #334155;
-  font-size: 13px;
+.section-block div {
   line-height: 1.7;
   white-space: pre-wrap;
 }
 
-.load-more {
-  padding: 10px 0 2px 0;
-  display: flex;
-  justify-content: center;
+.status-pill {
+  height: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.no-more {
-  font-size: 12px;
-  color: #94a3b8;
+.status-pill.pending {
+  color: #b45309;
+  background: rgba(254, 243, 199, 0.92);
+}
+
+.status-pill.progress {
+  color: #1d4ed8;
+  background: rgba(219, 234, 254, 0.92);
+}
+
+.status-pill.success {
+  color: #047857;
+  background: rgba(209, 250, 229, 0.92);
+}
+
+.status-pill.danger {
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.92);
+}
+
+.load-more {
+  display: flex;
+  justify-content: center;
 }
 </style>

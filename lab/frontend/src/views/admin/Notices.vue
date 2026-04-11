@@ -29,7 +29,7 @@
       </el-form>
     </section>
 
-    <el-card shadow="never" class="panel-card">
+    <TablePageCard title="公告列表" subtitle="发布中心" :count-label="`${pagination.total} 条`">
       <el-table v-loading="loading" :data="notices" stripe>
         <el-table-column prop="title" label="公告标题" min-width="180" />
         <el-table-column prop="publishScope" label="范围" min-width="100">
@@ -50,7 +50,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-row">
+      <template #pagination>
         <el-pagination
           background
           layout="prev, pager, next, total"
@@ -59,8 +59,8 @@
           :total="pagination.total"
           @current-change="handlePageChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑公告' : '发布公告'" width="760px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
@@ -108,6 +108,7 @@
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { getCollegeOptions } from '@/api/colleges'
 import { getLabPage } from '@/api/lab'
 import { createNotice, deleteNotice, getNoticePage, updateNotice } from '@/api/notices'
@@ -238,12 +239,6 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 16px;
-}
-
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
 }
 
 @media (max-width: 768px) {

@@ -18,20 +18,17 @@
     </section>
 
     <section class="metric-grid">
-      <article v-for="card in metricCards" :key="card.label" class="metric-card">
-        <span class="metric-label">{{ card.label }}</span>
-        <strong class="metric-value">{{ card.value }}</strong>
-        <span class="metric-tip">{{ card.tip }}</span>
-      </article>
+      <MetricCard v-for="card in metricCards" :key="card.label" :label="card.label" :value="card.value" :tip="card.tip" />
     </section>
 
-    <el-card v-if="pendingApprovals.length" shadow="never" class="panel-card pending-panel">
-      <template #header>
-        <div class="panel-header">
-          <span>{{ pendingSectionTitle }}</span>
-          <el-tag type="warning" effect="plain">{{ overview.pendingApprovalTotal ?? 0 }} 项</el-tag>
-        </div>
-      </template>
+    <TablePageCard
+      v-if="pendingApprovals.length"
+      class="panel-card pending-panel"
+      :title="pendingSectionTitle"
+      subtitle="待办与审批"
+      :count-label="`${overview.pendingApprovalTotal ?? 0} 项`"
+      count-tag-type="warning"
+    >
 
       <div class="pending-grid">
         <article v-for="item in pendingApprovals" :key="item.label" class="pending-card">
@@ -43,16 +40,10 @@
           <el-button v-if="item.route" link type="primary" @click="goRoute(item.route)">立即处理</el-button>
         </article>
       </div>
-    </el-card>
+    </TablePageCard>
 
     <section class="content-grid two-column">
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>最新申请</span>
-            <el-tag type="primary" effect="plain">{{ recentApplies.length }} 条</el-tag>
-          </div>
-        </template>
+      <TablePageCard title="最新申请" subtitle="申请流程" :count-label="`${recentApplies.length} 条`" count-tag-type="primary">
 
         <el-table :data="recentApplies" stripe>
           <el-table-column prop="studentName" label="学生" min-width="120" />
@@ -60,22 +51,16 @@
           <el-table-column v-if="showLabColumn" prop="labName" label="实验室" min-width="150" />
           <el-table-column prop="status" label="状态" min-width="110">
             <template #default="{ row }">
-              <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+              <StatusTag :value="row.status" preset="apply" />
             </template>
           </el-table-column>
           <el-table-column label="提交时间" min-width="170">
             <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
           </el-table-column>
         </el-table>
-      </el-card>
+      </TablePageCard>
 
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>最新公告</span>
-            <el-tag type="success" effect="plain">{{ notices.length }} 条</el-tag>
-          </div>
-        </template>
+      <TablePageCard title="最新公告" subtitle="管理通知" :count-label="`${notices.length} 条`" count-tag-type="success">
 
         <div v-if="!notices.length" class="empty-panel">
           <el-empty description="暂无公告" />
@@ -87,16 +72,11 @@
             <span>{{ formatDateTime(notice.publishTime) }}</span>
           </article>
         </div>
-      </el-card>
+      </TablePageCard>
     </section>
 
     <section class="content-grid two-column">
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>{{ primaryPanelTitle }}</span>
-          </div>
-        </template>
+      <TablePageCard :title="primaryPanelTitle" subtitle="趋势与排行">
 
         <div v-if="primaryList.length" class="rank-list">
           <div v-for="(item, index) in primaryList" :key="`${item.name}-${index}`" class="rank-item">
@@ -110,14 +90,9 @@
         <div v-else class="empty-panel">
           <el-empty description="暂无统计数据" />
         </div>
-      </el-card>
+      </TablePageCard>
 
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>{{ secondaryPanelTitle }}</span>
-          </div>
-        </template>
+      <TablePageCard :title="secondaryPanelTitle" subtitle="趋势与排行">
 
         <div v-if="secondaryList.length" class="rank-list">
           <div v-for="(item, index) in secondaryList" :key="`${item.name}-${index}`" class="rank-item">
@@ -131,7 +106,7 @@
         <div v-else class="empty-panel">
           <el-empty description="暂无统计数据" />
         </div>
-      </el-card>
+      </TablePageCard>
     </section>
   </div>
 </template>
@@ -143,8 +118,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getLatestNotices } from '@/api/notices'
 import { getOverviewStatistics } from '@/api/statistics'
+import MetricCard from '@/components/common/MetricCard.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { useUserStore } from '@/stores/user'
 import { downloadCsv } from '@/utils/export'
+import { getStatusLabel } from '@/utils/status-presenters'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -277,26 +256,6 @@ const primaryValue = (item) => {
   return formatDateTime(item.createTime)
 }
 
-const statusLabel = (status) => {
-  const map = {
-    submitted: '待审核',
-    leader_approved: '初审通过',
-    approved: '已通过',
-    rejected: '已驳回'
-  }
-  return map[status] || status || '-'
-}
-
-const statusTagType = (status) => {
-  const map = {
-    submitted: 'warning',
-    leader_approved: 'primary',
-    approved: 'success',
-    rejected: 'danger'
-  }
-  return map[status] || 'info'
-}
-
 const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
 
 const goRoute = async (route) => {
@@ -336,8 +295,8 @@ const buildExportRows = () => {
     rows,
     pendingSectionTitle.value,
     ['事项', '数量', '说明', '处理入口'],
-    pendingApprovals.value,
-    (item) => [item.label, item.value, item.description, item.route || '-']
+        pendingApprovals.value,
+        (item) => [item.label, item.value, item.description, item.route || '-']
   )
 
   appendTableRows(
@@ -347,8 +306,8 @@ const buildExportRows = () => {
     recentApplies.value,
     (item) =>
       showLabColumn.value
-        ? [item.studentName || '-', item.studentId || '-', item.labName || '-', statusLabel(item.status), formatDateTime(item.createTime)]
-        : [item.studentName || '-', item.studentId || '-', statusLabel(item.status), formatDateTime(item.createTime)]
+        ? [item.studentName || '-', item.studentId || '-', item.labName || '-', getStatusLabel(item.status, 'apply', '-'), formatDateTime(item.createTime)]
+        : [item.studentName || '-', item.studentId || '-', getStatusLabel(item.status, 'apply', '-'), formatDateTime(item.createTime)]
   )
 
   appendTableRows(

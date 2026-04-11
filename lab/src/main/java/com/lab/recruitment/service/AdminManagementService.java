@@ -14,16 +14,18 @@ public interface AdminManagementService {
      * 为实验室指定管理员
      * @param labId 实验室ID
      * @param userId 用户ID
+     * @param operator 当前操作人
      * @return 操作结果
      */
-    Result<Object> assignAdminToLab(Long labId, Long userId);
+    Result<Object> assignAdminToLab(Long labId, Long userId, User operator);
     
     /**
      * 移除实验室管理员
      * @param labId 实验室ID
+     * @param operator 当前操作人
      * @return 操作结果
      */
-    Result<Object> removeAdminFromLab(Long labId);
+    Result<Object> removeAdminFromLab(Long labId, User operator);
     
     /**
      * 获取实验室管理员信息

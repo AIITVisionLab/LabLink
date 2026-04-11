@@ -1,7 +1,7 @@
 <template>
   <div class="lab-admin-management">
-    <el-card>
-      <template #header>
+    <TablePageCard title="实验室管理员管理" subtitle="管理员分配" :count-label="`${labList.length} 个实验室`">
+      <template #header-extra>
         <div class="card-header">
           <span>实验室管理员管理</span>
           <el-button type="primary" @click="showAssignDialog">指定管理员</el-button>
@@ -41,7 +41,7 @@
           </template>
         </el-table-column>
       </el-table>
-    </el-card>
+    </TablePageCard>
     
     <!-- 指定管理员对话框 -->
     <el-dialog 
@@ -94,6 +94,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { 
   getLabsWithAdmin, 
   assignAdminToLab, 
@@ -219,13 +220,17 @@ onMounted(() => {
 
 <style scoped>
 .lab-admin-management {
-  padding: 20px;
+  padding: 0;
 }
 
 .card-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
+}
+
+.card-header span {
+  display: none;
 }
 
 .admin-info {

@@ -112,6 +112,8 @@ public class SecurityConfig {
                     "/api/user/register"
             ).permitAll()
             .antMatchers("/file/view").permitAll()
+            .antMatchers(HttpMethod.GET, "/files/*/preview", "/api/files/*/preview").permitAll()
+            .antMatchers(HttpMethod.GET, "/files/*/download", "/api/files/*/download").permitAll()
             .antMatchers(HttpMethod.GET, "/colleges/options", "/api/colleges/options").permitAll()
             .antMatchers(HttpMethod.GET, "/labs/list", "/api/labs/list").permitAll()
             .antMatchers(HttpMethod.GET, "/labs/stats", "/api/labs/stats").permitAll()
@@ -122,7 +124,7 @@ public class SecurityConfig {
             // 总负责人权限的端点
             .antMatchers("/user/admin/**").hasAuthority("ROLE_SUPER_ADMIN")
             .antMatchers("/user/student/list").hasAuthority("ROLE_SUPER_ADMIN")
-            .antMatchers("/labs/list-with-admin").hasAuthority("ROLE_SUPER_ADMIN")
+            .antMatchers("/labs/list-with-admin").hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN")
             // 管理员权限的端点（包括总负责人）
             .antMatchers("/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN")
             // 其他请求需要认证

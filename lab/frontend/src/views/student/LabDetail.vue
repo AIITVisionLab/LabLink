@@ -29,45 +29,30 @@
     <div v-if="lab" class="detail-container">
       <el-row :gutter="24">
         <el-col :xs="24" :sm="24" :md="16">
-          <!-- 实验室介绍 -->
-          <el-card shadow="never" class="panel-card info-section">
-            <template #header>
-              <div class="panel-header">
-                <el-icon><InfoFilled /></el-icon>
-                <span>实验室介绍</span>
-              </div>
-            </template>
+          <TablePageCard class="panel-card info-section" title="实验室介绍" subtitle="基础说明">
             <div class="rich-content">
               <p>{{ lab.basicInfo || '暂无详细介绍' }}</p>
             </div>
-          </el-card>
+          </TablePageCard>
 
-          <!-- 荣誉展示 -->
-          <el-card shadow="never" class="panel-card honor-section">
-            <template #header>
-              <div class="panel-header">
-                <el-icon><Trophy /></el-icon>
-                <span>荣誉展示</span>
-              </div>
-            </template>
+          <TablePageCard class="panel-card honor-section" title="荣誉展示" subtitle="成果沉淀">
             <div class="honor-list">
               <div v-if="lab.awards" class="honor-item">
                 <p>{{ lab.awards }}</p>
               </div>
               <el-empty v-else description="暂无荣誉展示" :image-size="60" />
             </div>
-          </el-card>
+          </TablePageCard>
         </el-col>
 
         <el-col :xs="24" :sm="24" :md="8">
-          <!-- 优秀学长 -->
-          <el-card shadow="never" class="panel-card senior-section">
-            <template #header>
-              <div class="panel-header">
-                <el-icon><StarFilled /></el-icon>
-                <span>优秀学长</span>
-              </div>
-            </template>
+          <TablePageCard
+            class="panel-card senior-section"
+            title="优秀学长"
+            subtitle="成长样本"
+            :count-label="`${parsedSeniors.length} 位`"
+            count-tag-type="warning"
+          >
             <div class="senior-list">
               <template v-if="parsedSeniors.length">
                 <div v-for="(senior, index) in parsedSeniors" :key="index" class="senior-card">
@@ -80,23 +65,16 @@
               </template>
               <el-empty v-else description="暂无优秀学长信息" :image-size="60" />
             </div>
-          </el-card>
+          </TablePageCard>
 
-          <!-- 所需技能 -->
-          <el-card shadow="never" class="panel-card skill-section">
-            <template #header>
-              <div class="panel-header">
-                <el-icon><Tools /></el-icon>
-                <span>所需技能</span>
-              </div>
-            </template>
+          <TablePageCard class="panel-card skill-section" title="所需技能" subtitle="能力要求">
             <div class="skill-tags">
               <el-tag v-for="skill in skillList" :key="skill" effect="plain" class="skill-tag">
                 {{ skill }}
               </el-tag>
               <span v-if="!skillList.length" class="empty-text">暂未明确技能要求</span>
             </div>
-          </el-card>
+          </TablePageCard>
         </el-col>
       </el-row>
     </div>
@@ -108,10 +86,11 @@
 </template>
 
 <script setup>
-import { InfoFilled, Location, StarFilled, Tools, Trophy, User } from '@element-plus/icons-vue'
+import { Location, User } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import request from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 
@@ -154,6 +133,11 @@ const fetchLabDetail = async () => {
 const handleApply = () => {
   if (userStore.userInfo?.labId) {
     ElMessage.warning('你已加入实验室，不能重复申请')
+    return
+  }
+  if (!userStore.userInfo?.resume) {
+    ElMessage.warning('请先到个人资料页提交简历后再申请实验室')
+    router.push('/student/profile')
     return
   }
   router.push(`/student/labs?applyLabId=${labId.value}`)

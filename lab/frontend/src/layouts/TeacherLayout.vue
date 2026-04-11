@@ -26,20 +26,20 @@
           </el-button>
           <div class="topbar-title">
             <p class="topbar-label">教师端</p>
-            <h2>{{ $route.meta.title || '首页' }}</h2>
+            <h2>{{ $route.meta.title || '工作台' }}</h2>
           </div>
         </div>
         <el-dropdown @command="handleCommand">
           <div class="user-chip">
             <el-avatar :size="34">{{ userInitial }}</el-avatar>
             <div>
-              <strong>{{ userStore.realName || '老师' }}</strong>
+              <strong>{{ userStore.realName || '教师' }}</strong>
               <span>{{ workspaceLabel }}</span>
             </div>
           </div>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人信息</el-dropdown-item>
+              <el-dropdown-item command="profile">个人资料</el-dropdown-item>
               <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -54,13 +54,14 @@
 </template>
 
 <script setup>
-import { Bell, DataBoard, DocumentCopy, Files, User, Expand, Fold } from '@element-plus/icons-vue'
+import { Expand, Fold } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import request from '@/utils/request'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { useUserStore } from '@/stores/user'
+import { ensureAuthContext } from '@/utils/auth-context'
+import { resolveDesktopMenuItems } from '@/utils/portal-menu'
 
 const route = useRoute()
 const router = useRouter()
@@ -91,23 +92,39 @@ const closeSidebar = () => {
 }
 
 const userInitial = computed(() => userStore.realName?.charAt(0) || 'T')
-const hasWorkspace = computed(() => Boolean(userStore.userInfo?.labId))
-const workspaceLabel = computed(() => (hasWorkspace.value ? `指导实验室 #${userStore.userInfo.labId}` : '指导老师'))
+const workspaceLabId = computed(() => userStore.userInfo?.labId)
+const hasWorkspace = computed(() => Boolean(workspaceLabId.value))
+const canCreateApply = computed(() => userStore.hasPermission('lab:create:apply'))
+const canViewAttendance = computed(() => userStore.hasPermission('attendance:view') && hasWorkspace.value)
+const canViewProfiles = computed(() => userStore.hasPermission('profile:view') && hasWorkspace.value)
+const canViewWorkspace = computed(
+  () =>
+    hasWorkspace.value &&
+    (
+      userStore.hasPermission('workspace:lab:manage') ||
+      userStore.hasPermission('workspace:college:view') ||
+      userStore.hasPermission('workspace:school:view')
+    )
+)
+const workspaceLabel = computed(() => (hasWorkspace.value ? `实验室 #${workspaceLabId.value}` : '教师工作台'))
 
-const menuItems = computed(() =>
+const fallbackMenuItems = computed(() =>
   [
-    { path: '/teacher/dashboard', label: '工作台', icon: DataBoard },
-    { path: '/teacher/create-applies', label: '实验室创建申请', icon: DocumentCopy },
-    hasWorkspace.value ? { path: '/teacher/workspace', label: '实验室工作台', icon: Files } : null,
-    { path: '/teacher/notices', label: '公告中心', icon: Bell },
-    { path: '/teacher/profile', label: '个人信息', icon: User }
+    { path: '/teacher/dashboard', label: '工作台', icon: 'DataBoard' },
+    canCreateApply.value ? { path: '/teacher/create-applies', label: '创建申请', icon: 'Tickets' } : null,
+    canViewAttendance.value ? { path: '/teacher/attendance', label: '考勤查看', icon: 'Calendar' } : null,
+    canViewProfiles.value ? { path: '/teacher/profiles', label: '成员资料', icon: 'Files' } : null,
+    canViewWorkspace.value ? { path: '/teacher/workspace', label: '资料空间', icon: 'Files' } : null,
+    { path: '/teacher/notifications', label: '消息中心', icon: 'Bell' },
+    { path: '/teacher/notices', label: '公告通知', icon: 'Bell' },
+    { path: '/teacher/profile', label: '个人资料', icon: 'User' }
   ].filter(Boolean)
 )
 
-const ensureProfile = async () => {
-  if (userStore.userInfo?.id) return
-  const response = await request.get('/api/access/profile')
-  userStore.setUserInfo(response.data || {})
+const menuItems = computed(() => resolveDesktopMenuItems(userStore.menus, fallbackMenuItems.value))
+
+const ensureContext = async () => {
+  await ensureAuthContext(userStore, { force: true })
 }
 
 const handleCommand = async (command) => {
@@ -132,7 +149,7 @@ watch(
 onMounted(() => {
   updateViewport()
   window.addEventListener('resize', updateViewport)
-  ensureProfile()
+  ensureContext()
 })
 
 onBeforeUnmount(() => {

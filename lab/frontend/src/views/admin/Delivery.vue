@@ -9,8 +9,8 @@
       title="超级管理员仅可查看投递信息，审核与发放 offer 由各实验室管理员负责。"
     />
 
-    <el-card>
-      <template #header>
+    <TablePageCard title="投递审核" subtitle="投递队列" :count-label="`${pagination.total} 条`">
+      <template #header-extra>
         <div class="card-header">
           <span>投递管理</span>
           <el-button type="primary" @click="fetchDeliveries">
@@ -20,7 +20,8 @@
         </div>
       </template>
 
-      <div class="search-area">
+      <template #filters>
+        <div class="search-area">
         <el-form :model="searchForm" inline>
           <el-form-item label="学生姓名">
             <el-input
@@ -51,7 +52,8 @@
             <el-button @click="resetSearch">重置</el-button>
           </el-form-item>
         </el-form>
-      </div>
+        </div>
+      </template>
 
       <el-table v-loading="loading" :data="deliveries" stripe>
         <el-table-column prop="labName" label="实验室" min-width="160" />
@@ -60,9 +62,7 @@
         <el-table-column prop="reason" label="投递内容" min-width="220" show-overflow-tooltip />
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.displayStatus)">
-              {{ getStatusText(row.displayStatus) }}
-            </el-tag>
+            <StatusTag :value="row.displayStatus" :label-map="deliveryStatusLabels" :type-map="deliveryStatusTypes" />
           </template>
         </el-table-column>
         <el-table-column label="投递时间" width="180">
@@ -95,7 +95,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination">
+      <template #pagination>
         <el-pagination
           v-model:current-page="pagination.current"
           v-model:page-size="pagination.size"
@@ -105,17 +105,19 @@
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
 
     <el-dialog v-model="showDetailDialog" title="投递详情" width="60%" :close-on-click-modal="false">
       <div v-if="selectedDelivery" class="delivery-detail">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="实验室">{{ selectedDelivery.labName }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="getStatusType(selectedDelivery.displayStatus)">
-              {{ getStatusText(selectedDelivery.displayStatus) }}
-            </el-tag>
+            <StatusTag
+              :value="selectedDelivery.displayStatus"
+              :label-map="deliveryStatusLabels"
+              :type-map="deliveryStatusTypes"
+            />
           </el-descriptions-item>
           <el-descriptions-item label="学生姓名">{{ selectedDelivery.studentName }}</el-descriptions-item>
           <el-descriptions-item label="学号">{{ selectedDelivery.studentId }}</el-descriptions-item>
@@ -205,6 +207,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import request from '@/utils/request'
 import { getUserInfo } from '@/utils/auth'
 import { buildAttachmentList, resolveFileUrl } from '@/utils/file'
@@ -244,7 +248,9 @@ function normalizeDelivery(record) {
 export default {
   name: 'AdminDelivery',
   components: {
-    Refresh
+    Refresh,
+    StatusTag,
+    TablePageCard
   },
   setup() {
     const loading = ref(false)
@@ -273,6 +279,26 @@ export default {
       id: null,
       comment: ''
     })
+
+    const deliveryStatusLabels = {
+      0: '待审核',
+      1: 'Joined',
+      2: '已拒绝',
+      3: '待学生确认',
+      4: '审核通过',
+      5: 'offer 已关闭',
+      6: '已撤销'
+    }
+
+    const deliveryStatusTypes = {
+      0: 'info',
+      1: 'success',
+      2: 'danger',
+      3: 'warning',
+      4: 'primary',
+      5: 'info',
+      6: 'warning'
+    }
 
     const canAudit = computed(() => currentUser.value?.role === 'admin')
 
@@ -451,6 +477,8 @@ export default {
       reviewPlaceholder,
       reviewRules,
       canAudit,
+      deliveryStatusLabels,
+      deliveryStatusTypes,
       fetchDeliveries,
       handleSearch,
       resetSearch,
@@ -478,8 +506,12 @@ export default {
 
 .card-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
+}
+
+.card-header span {
+  display: none;
 }
 
 .search-area {

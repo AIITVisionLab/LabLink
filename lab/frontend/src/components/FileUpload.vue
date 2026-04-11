@@ -75,7 +75,7 @@ import {
 } from '@/utils/file'
 
 const props = defineProps({
-  action: { type: String, default: '/api/upload' },
+  action: { type: String, default: '/api/files/upload' },
   modelValue: { type: Array, default: () => [] },
   limit: { type: Number, default: 5 },
   accept: { type: String, default: '' },
@@ -216,7 +216,7 @@ const beforeUpload = (file) => {
 }
 
 const handleSuccess = (response, uploadFile, uploadFiles) => {
-  if (response.code !== 200) {
+  if (response.code !== 200 && response.code !== 0) {
     ElMessage.error(response.message || '上传失败')
     emit('error', response)
     return

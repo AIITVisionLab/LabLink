@@ -15,21 +15,11 @@
     </section>
 
     <section class="metric-grid">
-      <article v-for="card in metricCards" :key="card.label" class="metric-card">
-        <span class="metric-label">{{ card.label }}</span>
-        <strong class="metric-value">{{ card.value }}</strong>
-        <span class="metric-tip">{{ card.tip }}</span>
-      </article>
+      <MetricCard v-for="card in metricCards" :key="card.label" :label="card.label" :value="card.value" :tip="card.tip" />
     </section>
 
     <section class="content-grid two-column">
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>开放招新计划</span>
-            <el-tag type="success" effect="plain">{{ activePlans.length }} 项</el-tag>
-          </div>
-        </template>
+      <TablePageCard title="开放招新计划" subtitle="可申请实验室" :count-label="`${activePlans.length} 项`" count-tag-type="success">
 
         <div v-if="!activePlans.length" class="empty-panel">
           <el-empty description="当前暂无开放计划" />
@@ -43,15 +33,9 @@
             <el-tag type="primary" effect="plain">{{ plan.quota }} 人</el-tag>
           </article>
         </div>
-      </el-card>
+      </TablePageCard>
 
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>最新公告</span>
-            <el-tag type="warning" effect="plain">{{ notices.length }} 条</el-tag>
-          </div>
-        </template>
+      <TablePageCard title="最新公告" subtitle="通知与动态" :count-label="`${notices.length} 条`" count-tag-type="warning">
 
         <div v-if="!notices.length" class="empty-panel">
           <el-empty description="暂无公告" />
@@ -63,15 +47,12 @@
             <span>{{ formatDateTime(notice.publishTime) }}</span>
           </article>
         </div>
-      </el-card>
+      </TablePageCard>
     </section>
 
-    <el-card shadow="never" class="panel-card">
-      <template #header>
-        <div class="panel-header">
-          <span>我的申请记录</span>
-          <router-link class="inline-link" to="/student/applications">查看全部</router-link>
-        </div>
+    <TablePageCard title="我的申请记录" subtitle="最近投递" :count-label="`${myApplies.length} 条`">
+      <template #header-extra>
+        <router-link class="inline-link" to="/student/applications">查看全部</router-link>
       </template>
 
       <el-table :data="myApplies" stripe>
@@ -79,14 +60,14 @@
         <el-table-column prop="planTitle" label="招新计划" min-width="180" />
         <el-table-column prop="status" label="状态" min-width="120">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+            <StatusTag :value="row.status" preset="apply" />
           </template>
         </el-table-column>
         <el-table-column label="提交时间" min-width="170">
           <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
         </el-table-column>
       </el-table>
-    </el-card>
+    </TablePageCard>
   </div>
 </template>
 
@@ -96,6 +77,9 @@ import { computed, onMounted, ref } from 'vue'
 import { getMyLabApplyPage } from '@/api/labApplies'
 import { getLatestNotices } from '@/api/notices'
 import { getActiveRecruitPlans } from '@/api/recruitPlans'
+import MetricCard from '@/components/common/MetricCard.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
@@ -126,26 +110,6 @@ const loadDashboard = async () => {
   activePlans.value = plansRes.data || []
   notices.value = noticeRes.data || []
   myApplies.value = applyRes.data.records || []
-}
-
-const statusLabel = (status) => {
-  const map = {
-    submitted: '待审核',
-    leader_approved: '初审通过',
-    approved: '已通过',
-    rejected: '已驳回'
-  }
-  return map[status] || status || '-'
-}
-
-const statusTagType = (status) => {
-  const map = {
-    submitted: 'warning',
-    leader_approved: 'primary',
-    approved: 'success',
-    rejected: 'danger'
-  }
-  return map[status] || 'info'
 }
 
 const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')

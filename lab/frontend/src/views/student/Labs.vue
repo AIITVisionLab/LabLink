@@ -3,8 +3,8 @@
     <section class="toolbar-card">
       <div class="toolbar-main">
         <div>
-          <p class="eyebrow">实验室查询</p>
-          <h2>浏览实验室与开放招新计划</h2>
+          <p class="eyebrow">实验室浏览</p>
+          <h2>查看实验室信息与开放招新计划</h2>
         </div>
         <div class="toolbar-actions">
           <el-button @click="loadData">刷新</el-button>
@@ -20,8 +20,11 @@
         >
           <template #title>
             <div class="alert-title-row">
-              <span>未提交简历，请先在个人资料提交个人简历。</span>
-              <el-button link type="warning" @click="router.push('/student/profile')">前往个人资料</el-button>
+              <span>你还没有提交简历，请先上传简历后再申请加入实验室。</span>
+              <div class="alert-actions">
+                <el-button link type="warning" @click="router.push('/student/profile')">简历提交</el-button>
+                <el-link :href="resumeTemplateUrl" download type="warning">下载模板</el-link>
+              </div>
             </div>
           </template>
         </el-alert>
@@ -30,20 +33,17 @@
           v-if="userStore.userInfo?.labId"
           type="success"
           :closable="false"
-          title="你已加入实验室，仍可继续浏览实验室信息，但不能重复提交入组申请。"
+          title="你已经加入实验室，当前仍可查看实验室信息，但不能再次提交加入申请。"
         />
       </div>
     </section>
 
-    <section class="college-section">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">学院导航</p>
-          <h3>先选择学院，再查看对应实验室</h3>
-        </div>
-        <el-tag type="info" effect="plain">{{ collegeSections.length }} 个学院分组</el-tag>
-      </div>
-
+    <TablePageCard
+      class="college-section"
+      title="学院导航"
+      subtitle="先选择学院，再查看对应实验室"
+      :count-label="`${collegeSections.length} 组`"
+    >
       <div v-if="collegeSections.length" class="college-grid">
         <button
           v-for="college in collegeSections"
@@ -53,39 +53,38 @@
           :class="{ active: String(college.id) === String(activeCollege?.id) }"
           @click="activeCollegeId = college.id"
         >
-          <span class="college-card-code">{{ college.code || 'COLLEGE' }}</span>
+          <span class="college-card-code">{{ college.code || '学院' }}</span>
           <strong>{{ college.name }}</strong>
           <span>{{ college.labs.length }} 个实验室</span>
         </button>
       </div>
-      <el-empty v-else description="当前暂无可浏览的实验室" />
-    </section>
+      <el-empty v-else description="当前暂无可见实验室。" />
+    </TablePageCard>
 
-    <section v-if="activeCollege" class="college-labs-section">
-      <div class="section-heading">
-        <div>
-          <p class="eyebrow">当前学院</p>
-          <h3>{{ activeCollege.name }}</h3>
-        </div>
-        <el-tag type="primary" effect="plain">{{ visibleLabs.length }} 个实验室</el-tag>
-      </div>
-
+    <TablePageCard
+      v-if="activeCollege"
+      class="college-labs-section"
+      :title="activeCollege.name"
+      subtitle="所选学院下的实验室"
+      :count-label="`${visibleLabs.length} 个实验室`"
+      count-tag-type="primary"
+    >
       <div class="lab-grid">
         <el-card v-for="lab in visibleLabs" :key="lab.id" shadow="never" class="lab-card">
           <div class="lab-card-head">
             <div>
-              <p class="lab-code">{{ lab.labCode || '未配置编码' }}</p>
+              <p class="lab-code">{{ lab.labCode || '未分配编号' }}</p>
               <h3>{{ lab.labName }}</h3>
             </div>
-            <el-tag :type="lab.status === 1 ? 'success' : 'info'">{{ lab.status === 1 ? '开放' : '关闭' }}</el-tag>
+            <StatusTag :value="lab.status" :label-map="labStatusLabels" :type-map="labStatusTypes" />
           </div>
 
-          <p class="lab-desc">{{ lab.labDesc || '暂无实验室简介' }}</p>
+          <p class="lab-desc">{{ lab.labDesc || '暂无实验室介绍。' }}</p>
 
           <div class="lab-meta">
-            <span>指导教师：{{ lab.teacherName || '待维护' }}</span>
-            <span>地点：{{ lab.location || '待维护' }}</span>
-            <span>计划容量：{{ lab.recruitNum || 0 }}</span>
+            <span>指导教师：{{ lab.teacherName || '待分配' }}</span>
+            <span>地点：{{ lab.location || '待补充' }}</span>
+            <span>计划名额：{{ lab.recruitNum || 0 }}</span>
           </div>
 
           <div class="plan-chip-group">
@@ -107,15 +106,15 @@
           </div>
         </el-card>
       </div>
-    </section>
+    </TablePageCard>
 
-    <el-dialog v-model="dialogVisible" title="提交实验室申请" width="620px">
+    <el-dialog v-model="dialogVisible" title="申请加入实验室" width="620px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
         <el-form-item label="实验室">
           <el-input :model-value="selectedLab?.labName || ''" disabled />
         </el-form-item>
-        <el-form-item label="招新计划" prop="recruitPlanId">
-          <el-select v-model="form.recruitPlanId" placeholder="请选择开放计划">
+        <el-form-item label="计划" prop="recruitPlanId">
+          <el-select v-model="form.recruitPlanId" placeholder="请选择开放中的计划">
             <el-option
               v-for="plan in selectedPlans"
               :key="plan.id"
@@ -124,7 +123,7 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="申请理由" prop="applyReason">
+        <el-form-item label="申请原因" prop="applyReason">
           <el-input v-model="form.applyReason" type="textarea" :rows="4" />
         </el-form-item>
         <el-form-item label="研究兴趣">
@@ -136,7 +135,7 @@
       </el-form>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitting" @click="submitApply">提交申请</el-button>
+        <el-button type="primary" :loading="submitting" @click="submitApply">提交</el-button>
       </template>
     </el-dialog>
   </div>
@@ -150,6 +149,8 @@ import { getCollegeOptions } from '@/api/colleges'
 import { createLabApply } from '@/api/labApplies'
 import { getLabPage } from '@/api/lab'
 import { getActiveRecruitPlans } from '@/api/recruitPlans'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
@@ -163,6 +164,15 @@ const colleges = ref([])
 const selectedLab = ref(null)
 const activeCollegeId = ref(null)
 const hasResume = computed(() => Boolean(userStore.userInfo?.resume))
+const resumeTemplateUrl = '/templates/member-application-template.docx'
+const labStatusLabels = {
+  0: '已关闭',
+  1: '开放中'
+}
+const labStatusTypes = {
+  0: 'info',
+  1: 'success'
+}
 
 const form = reactive({
   labId: null,
@@ -173,8 +183,8 @@ const form = reactive({
 })
 
 const rules = {
-  recruitPlanId: [{ required: true, message: '请选择招新计划', trigger: 'change' }],
-  applyReason: [{ required: true, message: '请输入申请理由', trigger: 'blur' }]
+  recruitPlanId: [{ required: true, message: '请先选择招新计划', trigger: 'change' }],
+  applyReason: [{ required: true, message: '请输入申请原因', trigger: 'blur' }]
 }
 
 const plansByLab = computed(() =>
@@ -217,7 +227,7 @@ const collegeSections = computed(() => {
     sections.push({
       id: 'unassigned',
       name: '未归属学院',
-      code: 'UNASSIGNED',
+      code: '未归属',
       labs: groupedLabs.unassigned
     })
   }
@@ -257,14 +267,14 @@ const applyState = (lab) => {
   if (!hasResume.value) {
     return {
       disabled: true,
-      label: '请先上传简历'
+      label: '请先提交简历'
     }
   }
 
   if (lab.status !== 1) {
     return {
       disabled: true,
-      label: '实验室未开放'
+      label: '当前未开放招新'
     }
   }
 
@@ -277,13 +287,13 @@ const applyState = (lab) => {
 
   return {
     disabled: false,
-    label: '申请加入'
+    label: '立即申请'
   }
 }
 
 const openApplyDialog = (lab) => {
   if (!hasResume.value) {
-    ElMessage.warning('请先在个人信息中上传简历后再申请加入实验室')
+    ElMessage.warning('请先到资料页提交简历后再申请实验室')
     return
   }
   selectedLab.value = lab
@@ -302,7 +312,7 @@ const submitApply = async () => {
   submitting.value = true
   try {
     await createLabApply({ ...form })
-    ElMessage.success('申请已提交，请等待审核')
+    ElMessage.success('申请已提交')
     dialogVisible.value = false
     await loadData()
   } finally {
@@ -316,13 +326,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.status-notice-group,
-.college-section,
-.college-labs-section {
-  display: grid;
-  gap: 16px;
-}
-
 .status-notice-group {
   margin-top: 20px;
 }
@@ -335,16 +338,11 @@ onMounted(() => {
   width: 100%;
 }
 
-.section-heading {
+.alert-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-
-.section-heading h3 {
-  margin: 4px 0 0;
-  color: #0f172a;
+  gap: 12px;
+  flex-shrink: 0;
 }
 
 .college-section,
@@ -439,10 +437,13 @@ onMounted(() => {
 }
 
 @media (max-width: 768px) {
-  .alert-title-row,
-  .section-heading {
+  .alert-title-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .alert-actions {
+    gap: 6px;
   }
 
   .college-grid,

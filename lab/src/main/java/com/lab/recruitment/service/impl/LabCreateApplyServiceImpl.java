@@ -64,6 +64,9 @@ public class LabCreateApplyServiceImpl implements LabCreateApplyService {
     @Override
     @Transactional
     public boolean createApply(LabCreateApplyCreateDTO createDTO, User currentUser) {
+        if (!currentUserAccessor.isTeacherIdentity(currentUser)) {
+            throw new RuntimeException("只有教师身份可以提交实验室创建申请");
+        }
         currentUserAccessor.assertTeacherOrAdmin(currentUser);
         Long managedCollegeId = resolveManagedCollegeId(currentUser);
         if (managedCollegeId == null && currentUserAccessor.isTeacherIdentity(currentUser)) {

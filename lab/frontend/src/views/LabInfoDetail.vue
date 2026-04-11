@@ -68,13 +68,14 @@
           </div>
         </div>
 
-        <el-card shadow="never" class="panel-card reveal-item" style="transition-delay: 0.05s">
-          <template #header>
-            <div class="panel-header">
-              <span>优秀学长</span>
-              <el-tag type="warning" effect="plain">{{ graduates.length }} 位</el-tag>
-            </div>
-          </template>
+        <TablePageCard
+          class="panel-card reveal-item"
+          style="transition-delay: 0.05s"
+          title="优秀学长"
+          subtitle="毕业去向"
+          :count-label="`${graduates.length} 位`"
+          count-tag-type="warning"
+        >
           <div v-if="graduates.length" class="graduate-grid">
             <div v-for="item in graduates" :key="item.id" class="graduate-card">
               <div class="graduate-head">
@@ -94,7 +95,7 @@
             </div>
           </div>
           <el-empty v-else description="暂无优秀毕业生数据" />
-        </el-card>
+        </TablePageCard>
       </main>
     </div>
   </div>
@@ -104,6 +105,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { Back, InfoFilled, Trophy, DataBoard, Document } from '@element-plus/icons-vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { getLabById } from '@/api/lab'
 import { getGraduateList } from '@/api/graduate'
 

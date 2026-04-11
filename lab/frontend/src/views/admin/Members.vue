@@ -33,7 +33,7 @@
       </el-form>
     </section>
 
-    <el-card shadow="never" class="panel-card">
+    <TablePageCard title="成员名单" subtitle="实验室成员目录" :count-label="`${pagination.total} 条`">
       <el-table v-loading="loading" :data="members" stripe>
         <el-table-column prop="realName" label="成员姓名" min-width="120" />
         <el-table-column prop="studentId" label="学号" min-width="120" />
@@ -71,7 +71,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-row">
+      <template #pagination>
         <el-pagination
           background
           layout="prev, pager, next, total"
@@ -80,14 +80,15 @@
           :total="pagination.total"
           @current-change="handlePageChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
   </div>
 </template>
 
 <script setup>
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { appointLeader, getLabMemberPage, removeLabMember } from '@/api/labMembers'
 
 const loading = ref(false)
@@ -154,11 +155,3 @@ onMounted(() => {
   loadMembers()
 })
 </script>
-
-<style scoped>
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
-}
-</style>

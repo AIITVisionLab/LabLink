@@ -7,18 +7,25 @@ import com.lab.recruitment.dto.RegisterEmailCodeDTO;
 import com.lab.recruitment.dto.TeacherRegisterDTO;
 import com.lab.recruitment.dto.TeacherRegisterEmailCodeDTO;
 import com.lab.recruitment.dto.UserRegisterDTO;
+import com.lab.recruitment.entity.User;
+import com.lab.recruitment.service.AuthContextService;
 import com.lab.recruitment.service.TeacherRegisterApplyService;
 import com.lab.recruitment.service.UserService;
+import com.lab.recruitment.support.CurrentUserAccessor;
 import com.lab.recruitment.utils.Result;
+import com.lab.recruitment.vo.AuthMenuVO;
 import com.lab.recruitment.vo.LoginVO;
+import com.lab.recruitment.vo.UserProfileVO;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.sql.SQLIntegrityConstraintViolationException;
+import java.util.List;
 
 @RestController
 @RequestMapping("/auth")
@@ -29,6 +36,12 @@ public class AuthController {
 
     @Autowired
     private TeacherRegisterApplyService teacherRegisterApplyService;
+
+    @Autowired
+    private CurrentUserAccessor currentUserAccessor;
+
+    @Autowired
+    private AuthContextService authContextService;
 
     @PostMapping("/register")
     public Result<Object> register(@Validated @RequestBody UserRegisterDTO registerDTO) {
@@ -81,6 +94,36 @@ public class AuthController {
         try {
             LoginVO loginVO = userService.login(loginDTO.getUsername(), loginDTO.getPassword());
             return Result.success(loginVO);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/me")
+    public Result<UserProfileVO> getCurrentUserContext() {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.apiSuccess(authContextService.buildContext(currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/menus")
+    public Result<List<AuthMenuVO>> getCurrentMenus() {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.apiSuccess(authContextService.buildMenus(currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @GetMapping("/permissions")
+    public Result<List<String>> getCurrentPermissions() {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.apiSuccess(authContextService.buildPermissions(currentUser));
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }

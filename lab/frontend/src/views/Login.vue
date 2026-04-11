@@ -169,19 +169,15 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, reactive, ref } from 'vue'
+import { onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Lock, Message, User } from '@element-plus/icons-vue'
-import {
-  getUserInfo as fetchCurrentUserApi,
-  login,
-  resetPassword,
-  sendPasswordResetCode
-} from '@/api/auth'
+import { login, resetPassword, sendPasswordResetCode } from '@/api/auth'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { useUserStore } from '@/stores/user'
-import { resolvePortalHome } from '@/utils/portal'
+import { ensureAuthContext } from '@/utils/auth-context'
+import { resolvePortalHome, setPortalSurface } from '@/utils/portal'
 
 const router = useRouter()
 const userStore = useUserStore()
@@ -365,26 +361,21 @@ const handleLogin = async () => {
     const userData = response.data
     userStore.setToken(userData.token)
 
-    let mergedUserInfo = userData
-    try {
-      const profileResponse = await fetchCurrentUserApi()
-      mergedUserInfo = {
-        ...userData,
-        ...(profileResponse.data || {})
-      }
-    } catch {
-      mergedUserInfo = userData
-    }
-
-    userStore.setUserInfo(mergedUserInfo)
+    userStore.setUserInfo(userData)
+    await ensureAuthContext(userStore, { force: true, fallbackUserInfo: userData })
     ElMessage.success('登录成功')
-    await router.push(resolvePortalHome(mergedUserInfo))
+    setPortalSurface('desktop')
+    await router.push(resolvePortalHome(userStore.userInfo || userData, { surface: 'desktop' }))
   } catch (error) {
     ElMessage.error(resolveErrorMessage(error, '登录失败，请检查账号和密码'))
   } finally {
     loading.value = false
   }
 }
+
+onMounted(() => {
+  setPortalSurface('desktop')
+})
 
 onBeforeUnmount(() => {
   clearInterval(resetCodeTimer)

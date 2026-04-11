@@ -18,12 +18,7 @@
 
     <template v-else>
       <section v-if="lab" class="content-grid two-column">
-        <el-card shadow="never" class="panel-card">
-          <template #header>
-            <div class="panel-header">
-              <span>实验室信息</span>
-            </div>
-          </template>
+        <TablePageCard class="panel-card" title="实验室信息" subtitle="基础资料">
 
           <div class="detail-list">
             <div class="detail-item"><span>实验室名称</span><strong>{{ lab.labName }}</strong></div>
@@ -32,28 +27,17 @@
             <div class="detail-item"><span>地点</span><strong>{{ lab.location || '待维护' }}</strong></div>
             <div class="detail-item"><span>计划容量</span><strong>{{ lab.recruitNum || 0 }}</strong></div>
           </div>
-        </el-card>
+        </TablePageCard>
 
-        <el-card shadow="never" class="panel-card">
-          <template #header>
-            <div class="panel-header">
-              <span>实验室简介</span>
-            </div>
-          </template>
+        <TablePageCard class="panel-card" title="实验室简介" subtitle="简介与基础信息">
 
           <p class="description-block">{{ lab.labDesc || '暂无简介' }}</p>
           <el-divider />
           <p class="description-block">{{ lab.basicInfo || '暂无基础信息' }}</p>
-        </el-card>
+        </TablePageCard>
       </section>
 
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>成员名单</span>
-            <el-tag type="primary" effect="plain">{{ members.length }} 人</el-tag>
-          </div>
-        </template>
+      <TablePageCard title="成员名单" subtitle="当前活跃成员" :count-label="`${members.length} 人`" count-tag-type="primary">
 
         <el-table v-loading="loading" :data="members" stripe>
           <el-table-column prop="realName" label="姓名" min-width="120" />
@@ -61,14 +45,12 @@
           <el-table-column prop="major" label="专业" min-width="150" />
           <el-table-column prop="memberRole" label="角色" min-width="120">
             <template #default="{ row }">
-              <el-tag :type="row.memberRole === 'lab_leader' ? 'success' : 'info'">
-                {{ row.memberRole === 'lab_leader' ? '负责人' : '成员' }}
-              </el-tag>
+              <StatusTag :value="row.memberRole" :label-map="memberRoleLabels" :type-map="memberRoleTypes" />
             </template>
           </el-table-column>
           <el-table-column prop="joinDate" label="加入日期" min-width="120" />
         </el-table>
-      </el-card>
+      </TablePageCard>
     </template>
   </div>
 </template>
@@ -77,12 +59,24 @@
 import { onMounted, ref } from 'vue'
 import { getLabById } from '@/api/lab'
 import { getActiveLabMembers } from '@/api/labMembers'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
 const loading = ref(false)
 const lab = ref(null)
 const members = ref([])
+const memberRoleLabels = {
+  lab_leader: '负责人',
+  leader: '负责人',
+  member: '成员'
+}
+const memberRoleTypes = {
+  lab_leader: 'success',
+  leader: 'success',
+  member: 'info'
+}
 
 const loadLabData = async () => {
   if (!userStore.userInfo?.labId) {

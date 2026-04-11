@@ -73,6 +73,15 @@
             <if test="labId != null">
                 AND d.lab_id = #{labId}
             </if>
+            <if test="labId == null and collegeId != null">
+                AND EXISTS (
+                    SELECT 1
+                    FROM t_lab dl
+                    WHERE dl.id = d.lab_id
+                      AND dl.deleted = 0
+                      AND dl.college_id = #{collegeId}
+                )
+            </if>
         WHERE u.role = 'student'
           AND u.deleted = 0
           <if test="keyword != null and keyword != ''">
@@ -91,12 +100,41 @@
               AND u.major LIKE CONCAT('%', #{major}, '%')
           </if>
           <if test="labId != null">
-              AND EXISTS (
-                  SELECT 1
-                  FROM t_delivery dx
-                  WHERE dx.user_id = u.id
-                    AND dx.lab_id = #{labId}
-                    AND dx.deleted = 0
+              AND (
+                  EXISTS (
+                      SELECT 1
+                      FROM t_delivery dx
+                      WHERE dx.user_id = u.id
+                        AND dx.lab_id = #{labId}
+                        AND dx.deleted = 0
+                  )
+                  OR EXISTS (
+                      SELECT 1
+                      FROM t_lab_member lm
+                      WHERE lm.user_id = u.id
+                        AND lm.lab_id = #{labId}
+                        AND lm.deleted = 0
+                  )
+              )
+          </if>
+          <if test="labId == null and collegeId != null">
+              AND (
+                  EXISTS (
+                      SELECT 1
+                      FROM t_delivery dx
+                      LEFT JOIN t_lab dl ON dl.id = dx.lab_id AND dl.deleted = 0
+                      WHERE dx.user_id = u.id
+                        AND dx.deleted = 0
+                        AND dl.college_id = #{collegeId}
+                  )
+                  OR EXISTS (
+                      SELECT 1
+                      FROM t_lab_member lm
+                      LEFT JOIN t_lab ll ON ll.id = lm.lab_id AND ll.deleted = 0
+                      WHERE lm.user_id = u.id
+                        AND lm.deleted = 0
+                        AND ll.college_id = #{collegeId}
+                  )
               )
           </if>
         GROUP BY
@@ -153,12 +191,41 @@
               AND u.major LIKE CONCAT('%', #{major}, '%')
           </if>
           <if test="labId != null">
-              AND EXISTS (
-                  SELECT 1
-                  FROM t_delivery dx
-                  WHERE dx.user_id = u.id
-                    AND dx.lab_id = #{labId}
-                    AND dx.deleted = 0
+              AND (
+                  EXISTS (
+                      SELECT 1
+                      FROM t_delivery dx
+                      WHERE dx.user_id = u.id
+                        AND dx.lab_id = #{labId}
+                        AND dx.deleted = 0
+                  )
+                  OR EXISTS (
+                      SELECT 1
+                      FROM t_lab_member lm
+                      WHERE lm.user_id = u.id
+                        AND lm.lab_id = #{labId}
+                        AND lm.deleted = 0
+                  )
+              )
+          </if>
+          <if test="labId == null and collegeId != null">
+              AND (
+                  EXISTS (
+                      SELECT 1
+                      FROM t_delivery dx
+                      LEFT JOIN t_lab dl ON dl.id = dx.lab_id AND dl.deleted = 0
+                      WHERE dx.user_id = u.id
+                        AND dx.deleted = 0
+                        AND dl.college_id = #{collegeId}
+                  )
+                  OR EXISTS (
+                      SELECT 1
+                      FROM t_lab_member lm
+                      LEFT JOIN t_lab ll ON ll.id = lm.lab_id AND ll.deleted = 0
+                      WHERE lm.user_id = u.id
+                        AND lm.deleted = 0
+                        AND ll.college_id = #{collegeId}
+                  )
               )
           </if>
     </select>

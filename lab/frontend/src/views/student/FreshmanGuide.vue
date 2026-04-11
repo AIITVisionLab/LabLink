@@ -3,7 +3,7 @@
     <GradPathNav
       :assessment-ready="dashboard.hasResult"
       title="成长中心"
-      description="先完成 20 道成长测评，再根据你的真实倾向动态生成成长路径、学习阶段和练习入口。这里不再只是静态引导页，而是整个成长中心的起点。"
+      description="先完成 20 道题测评，再根据你的真实倾向解锁个性化路径、阶段学习方案和实践入口。"
     >
       <template #actions>
         <el-button v-if="dashboard.hasResult && !showAssessment" @click="restartAssessment">
@@ -14,17 +14,17 @@
           type="primary"
           @click="router.push('/student/guide/practice')"
         >
-          直接去练习中心
+          前往实践中心
         </el-button>
         <el-tag v-else type="warning" effect="plain">
-          完成测评后解锁路径广场、练习中心和 AI 面试
+          完成测评后解锁路径广场、实践中心和 AI 面试
         </el-tag>
       </template>
     </GradPathNav>
 
     <el-alert
       v-if="!dashboard.hasResult"
-      title="当前仍处于成长中心初始化阶段。请先完成 20 题成长测评，后续路径广场、能力匹配、学习路线、练习中心和 AI 面试都会在测评完成后解锁。"
+      title="成长中心当前以测评为入口，请先完成 20 道题测评，再解锁路径广场、能力匹配、学习路线、实践中心和 AI 面试。"
       type="warning"
       :closable="false"
       show-icon
@@ -39,11 +39,11 @@
       <el-card class="assessment-intro" shadow="never">
         <div class="intro-copy">
           <div>
-            <p class="eyebrow">ASSESSMENT FIRST</p>
-            <h2>先回答 20 道题，再决定你该走哪条成长路径</h2>
+            <p class="eyebrow">先做测评</p>
+            <h2>在决定重点投入哪个方向前，请先完成全部 20 道题。</h2>
             <p>
-              这套题不是性格测试，而是围绕任务偏好、学习方式、交付习惯和岗位期待来判断你更适合投入哪条路径。
-              题目答完后，系统会给出动态推荐度，而不是所有方向都差不多。
+              这不是性格测试，而是围绕任务偏好、学习方式、执行习惯和角色预期进行判断，
+              让平台给出真正适合你的方向建议，而不是把所有路线都平均推荐一遍。
             </p>
           </div>
           <div class="step-badge">
@@ -54,7 +54,7 @@
 
         <div class="progress-row">
           <el-progress :percentage="progressPercent" :stroke-width="10" />
-          <span>{{ answeredCount }} / {{ questions.length }} 已完成</span>
+          <span>已完成 {{ answeredCount }} / {{ questions.length }}</span>
         </div>
       </el-card>
 
@@ -96,9 +96,9 @@
       </div>
 
       <div class="assessment-actions">
-        <el-button :disabled="currentStep === 1" @click="currentStep -= 1">上一组</el-button>
+        <el-button :disabled="currentStep === 1" @click="currentStep -= 1">上一步</el-button>
         <el-button v-if="currentStep < totalSteps" type="primary" @click="goNextStep">
-          下一组
+          下一步
         </el-button>
         <el-button v-else type="primary" :loading="submitting" @click="handleSubmit">
           提交测评
@@ -108,24 +108,15 @@
 
     <template v-else>
       <section class="result-grid">
-        <el-card class="hero-card" shadow="never">
-          <p class="eyebrow">RESULT OVERVIEW</p>
-          <h2>{{ topTrack?.name || '成长路径推荐' }}</h2>
+        <section class="hero-card">
+          <p class="eyebrow">结果总览</p>
+          <h2>{{ topTrack?.name || '推荐成长路径' }}</h2>
           <p class="summary-text">{{ dashboard.latestResult?.summary }}</p>
 
           <div class="hero-meta">
-            <div class="meta-item">
-              <strong>{{ topTrack?.matchScore ?? 0 }}</strong>
-              <span>首选推荐度</span>
-            </div>
-            <div class="meta-item">
-              <strong>{{ dashboard.latestResult?.answerCount || 0 }}</strong>
-              <span>已答题数</span>
-            </div>
-            <div class="meta-item">
-              <strong>{{ dashboard.latestResult?.createTime || '-' }}</strong>
-              <span>最近测评时间</span>
-            </div>
+            <MetricCard label="最高匹配度" :value="topTrack?.matchScore ?? 0" tip="系统动态计算" compact />
+            <MetricCard label="已答题数" :value="dashboard.latestResult?.answerCount || 0" tip="总计 20 题" compact />
+            <MetricCard label="最近测评" :value="dashboard.latestResult?.createTime || '-'" tip="最近一次提交时间" compact />
           </div>
 
           <div class="hero-actions">
@@ -134,25 +125,18 @@
               type="primary"
               @click="router.push(`/student/guide/learn?track=${topTrack.code}`)"
             >
-              按首选路径开始
+              从这条路径开始
             </el-button>
             <el-button
               v-if="topTrack"
               @click="router.push(`/student/guide/practice?track=${topTrack.code}&keyword=${encodeURIComponent(topTrack.recommendedKeyword || '')}`)"
             >
-              去练习中心
+              前往实践中心
             </el-button>
           </div>
-        </el-card>
+        </section>
 
-        <el-card class="top-card" shadow="never">
-          <template #header>
-            <div class="section-head">
-              <span>Top 3 推荐路径</span>
-              <el-tag type="success" effect="plain">动态结果</el-tag>
-            </div>
-          </template>
-
+        <TablePageCard class="top-card" title="TOP 3 推荐路径" subtitle="动态结果" count-label="动态结果" count-tag-type="success">
           <div class="top-list">
             <button
               v-for="track in topTracks"
@@ -167,18 +151,11 @@
               <span>{{ track.matchScore }}</span>
             </button>
           </div>
-        </el-card>
+        </TablePageCard>
       </section>
 
       <section class="ranking-grid">
-        <el-card class="ranking-card" shadow="never">
-          <template #header>
-            <div class="section-head">
-              <span>完整路径排序</span>
-              <el-tag effect="plain">共 {{ ranking.length }} 条</el-tag>
-            </div>
-          </template>
-
+        <TablePageCard class="ranking-card" title="全部路径排行" subtitle="完整排序" :count-label="`共 ${ranking.length} 条`">
           <div class="ranking-list">
             <div v-for="track in ranking" :key="track.code" class="ranking-item">
               <div class="rank-copy">
@@ -190,31 +167,33 @@
               </div>
             </div>
           </div>
-        </el-card>
+        </TablePageCard>
 
-        <el-card class="quick-card" shadow="never">
-          <template #header>
-            <div class="section-head">
-              <span>推荐动作</span>
-              <el-tag type="warning" effect="plain">先做这三步</el-tag>
-            </div>
-          </template>
-
+        <TablePageCard class="quick-card" title="建议动作" subtitle="先做这三步" count-label="三步" count-tag-type="warning">
           <div class="quick-list">
             <div class="quick-item">
               <strong>1. 先确认主路径</strong>
-              <p>优先按首选路径推进，不要同时摊开太多方向。只有在前两名非常接近时，再考虑双路径准备。</p>
+              <p>
+                优先投入排名最高的路径，不要把精力平均分散到太多方向上。
+                只有当前两条路径结果真的非常接近时，才建议并行准备。
+              </p>
             </div>
             <div class="quick-item">
-              <strong>2. 再去看学习路线</strong>
-              <p>每条路径都拆成阶段式路线，先把知识闭环做出来，再去刷题和做项目，不要只囤资料。</p>
+              <strong>2. 按阶段学习路线推进</strong>
+              <p>
+                每条路径都拆成了清晰的阶段。先建立知识闭环，再进入题库训练和项目实践，
+                不要只停留在囤资料阶段。
+              </p>
             </div>
             <div class="quick-item">
-              <strong>3. 最后用题库和 AI 面试验证</strong>
-              <p>练习中心负责题目通过率，AI 面试负责表达能力，两个都要补，不能只做其中一个。</p>
+              <strong>3. 用题库和 AI 面试双重验证</strong>
+              <p>
+                实践中心负责验证题目通过率，AI 面试负责验证表达与讲解能力，
+                两者都需要，不要只做其中一项。
+              </p>
             </div>
           </div>
-        </el-card>
+        </TablePageCard>
       </section>
     </template>
   </div>
@@ -225,6 +204,8 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import GradPathNav from '@/components/GradPathNav.vue'
+import MetricCard from '@/components/common/MetricCard.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { clearGrowthDashboardCache, loadGrowthDashboard } from '@/utils/growthCenterCache'
 import {
   getGrowthAssessmentQuestions,
@@ -283,7 +264,7 @@ const loadDashboard = async (force = false) => {
       await loadAssessmentQuestions()
     }
   } catch (error) {
-    loadError.value = '成长中心数据加载失败，请稍后重试'
+    loadError.value = '加载成长中心数据失败，请稍后重试。'
     questions.value = []
   } finally {
     loading.value = false
@@ -309,7 +290,7 @@ const restartAssessment = async () => {
 const validateCurrentStep = () => {
   const missing = visibleQuestions.value.find((question) => !answers[question.id])
   if (missing) {
-    ElMessage.warning(`请先完成第 ${missing.questionNo} 题`)
+    ElMessage.warning(`请先完成第 ${missing.questionNo} 题。`)
     return false
   }
   return true
@@ -327,7 +308,7 @@ const handleSubmit = async () => {
     return
   }
   if (answeredCount.value !== questions.value.length) {
-    ElMessage.warning('请完成全部 20 道测评题目')
+    ElMessage.warning('请先完成全部 20 道测评题后再提交。')
     return
   }
 
@@ -340,7 +321,7 @@ const handleSubmit = async () => {
         optionKey: answers[question.id]
       }))
     })
-    ElMessage.success('成长测评已完成，推荐路径已更新')
+    ElMessage.success('测评已提交，推荐路径已更新。')
     clearGrowthDashboardCache()
     await loadDashboard(true)
   } finally {
@@ -385,10 +366,12 @@ onMounted(() => {
 .ranking-card,
 .quick-card {
   border: 1px solid rgba(14, 165, 233, 0.14);
+  border-radius: 24px;
 }
 
 .assessment-intro,
 .hero-card {
+  padding: 20px;
   background:
     radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 25%),
     linear-gradient(135deg, #082f49, #0f766e);
@@ -631,26 +614,15 @@ onMounted(() => {
   gap: 14px;
 }
 
-.meta-item {
-  padding: 16px;
-  border-radius: 18px;
+.hero-meta :deep(.metric-card) {
   background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
-.meta-item strong,
-.meta-item span {
-  display: block;
-}
-
-.meta-item strong {
-  font-size: 22px;
-}
-
-.meta-item span {
-  margin-top: 6px;
-  font-size: 13px;
-  color: rgba(226, 232, 240, 0.88);
+.hero-meta :deep(.metric-card__label),
+.hero-meta :deep(.metric-card__tip),
+.hero-meta :deep(.metric-card__value) {
+  color: #e2e8f0;
 }
 
 .hero-actions {
@@ -658,13 +630,6 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   flex-wrap: wrap;
-}
-
-.section-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
 }
 
 .top-item,

@@ -1,6 +1,6 @@
 <template>
   <div class="lab-info-management">
-    <el-card>
+    <TablePageCard title="实验室信息管理" subtitle="实验室工作台">
       <el-tabs v-model="activeTab">
         <el-tab-pane label="实验室信息" name="info">
           <el-form ref="labFormRef" :model="labInfo" :rules="labRules" label-width="120px" class="lab-form">
@@ -93,7 +93,7 @@
           </div>
         </el-tab-pane>
       </el-tabs>
-    </el-card>
+    </TablePageCard>
 
     <el-dialog v-model="graduateDialog.visible" :title="graduateDialog.title" width="50%">
       <el-form ref="graduateFormRef" :model="graduateForm" :rules="graduateRules" label-width="100px">
@@ -134,6 +134,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import request from '@/utils/request'
 import { getLabById, updateLabInfo } from '@/api/lab'
 import { addGraduate, deleteGraduate as deleteGraduateApi, getGraduateList, updateGraduate } from '@/api/graduate'

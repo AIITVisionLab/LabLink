@@ -29,7 +29,7 @@
       </el-form>
     </section>
 
-    <el-card shadow="never" class="panel-card">
+    <TablePageCard title="教师注册审批" subtitle="审批队列" :count-label="`${pagination.total} 条`">
       <el-table v-loading="loading" :data="records" stripe>
         <el-table-column prop="teacherNo" label="工号" min-width="120" />
         <el-table-column prop="realName" label="姓名" min-width="120" />
@@ -39,7 +39,7 @@
         <el-table-column prop="email" label="邮箱" min-width="220" />
         <el-table-column label="流程状态" min-width="120">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+            <StatusTag :value="row.status" preset="apply" />
           </template>
         </el-table-column>
         <el-table-column prop="applyReason" label="申请说明" min-width="240" show-overflow-tooltip />
@@ -96,7 +96,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-row">
+      <template #pagination>
         <el-pagination
           background
           layout="prev, pager, next, total"
@@ -105,8 +105,8 @@
           :total="pagination.total"
           @current-change="handlePageChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
   </div>
 </template>
 
@@ -114,6 +114,8 @@
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { auditTeacherRegisterApply, getTeacherRegisterApplyPage } from '@/api/teacherRegisterApplies'
 import { useUserStore } from '@/stores/user'
 
@@ -211,12 +213,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
-}
-
 .audit-cell {
   display: grid;
   gap: 6px;

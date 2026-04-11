@@ -4,6 +4,7 @@ import { Capacitor } from '@capacitor/core'
 const ABSOLUTE_URL_PATTERN = /^https?:\/\//i
 const PRIVATE_HOST_PATTERN = /^(localhost|127(?:\.\d{1,3}){3}|0(?:\.0){3})$/i
 const CLOUD_API_ORIGIN = 'http://101.35.79.76'
+const FILE_ID_PATTERN = /^file-id:(\d+)$/i
 
 function isNativePlatform() {
   try {
@@ -41,6 +42,11 @@ export function resolveFileUrl(rawUrl) {
     return ''
   }
 
+  const fileId = resolveManagedFileId(rawUrl)
+  if (fileId) {
+    return buildManagedFileViewUrl(fileId)
+  }
+
   if (ABSOLUTE_URL_PATTERN.test(rawUrl)) {
     return rawUrl
   }
@@ -54,6 +60,22 @@ export function resolveFileUrl(rawUrl) {
     return buildSecuredFileViewUrl(normalizedPath)
   }
   return `${getBackendOrigin()}${normalizedPath}`
+}
+
+function resolveManagedFileId(rawUrl) {
+  const normalized = String(rawUrl || '').trim()
+  const match = normalized.match(FILE_ID_PATTERN)
+  return match ? Number(match[1]) : null
+}
+
+function buildManagedFileViewUrl(fileId) {
+  const params = new URLSearchParams()
+  const token = getToken()
+  if (token) {
+    params.set('token', token)
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : ''
+  return `${getBackendOrigin()}/api/files/${fileId}/preview${suffix}`
 }
 
 function buildSecuredFileViewUrl(path) {
@@ -70,6 +92,11 @@ export function getFileNameFromUrl(rawUrl, fallback = 'attachment') {
     return fallback
   }
 
+  const fileId = resolveManagedFileId(rawUrl)
+  if (fileId) {
+    return `file-${fileId}`
+  }
+
   const lastSegment = rawUrl.split('/').pop()
   if (!lastSegment) {
     return fallback
@@ -84,6 +111,10 @@ export function getFileNameFromUrl(rawUrl, fallback = 'attachment') {
 
 export function getFileExtension(rawUrl) {
   if (!rawUrl) {
+    return ''
+  }
+
+  if (resolveManagedFileId(rawUrl)) {
     return ''
   }
 

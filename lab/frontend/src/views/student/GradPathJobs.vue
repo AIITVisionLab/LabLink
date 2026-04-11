@@ -15,22 +15,15 @@
     </div>
 
     <section class="jobs-grid">
-      <el-card
+      <TablePageCard
         v-for="track in tracks"
         :key="track.code"
         class="job-card"
-        shadow="never"
+        :title="track.name"
+        :subtitle="track.shortName"
+        :count-label="track.difficultyLabel || '成长路径'"
+        :count-tag-type="track.matchScore >= 80 ? 'success' : 'info'"
       >
-        <div class="card-top">
-          <div>
-            <p class="eyebrow">{{ track.shortName }}</p>
-            <h3>{{ track.name }}</h3>
-          </div>
-          <el-tag effect="plain" :type="track.matchScore >= 80 ? 'success' : 'info'">
-            {{ track.difficultyLabel || '成长路径' }}
-          </el-tag>
-        </div>
-
         <div class="salary">{{ track.salaryRange || '持续成长方向' }}</div>
         <p class="subtitle">{{ track.subtitle }}</p>
         <p class="summary">{{ track.description }}</p>
@@ -68,7 +61,7 @@
           <el-button @click="openLearn(track.code)">看路线</el-button>
           <el-button type="primary" @click="openPractice(track)">去练题</el-button>
         </div>
-      </el-card>
+      </TablePageCard>
     </section>
   </div>
 </template>
@@ -77,6 +70,7 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import GradPathNav from '@/components/GradPathNav.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { loadGrowthDashboard } from '@/utils/growthCenterCache'
 
 const router = useRouter()
@@ -149,29 +143,8 @@ onMounted(() => {
     linear-gradient(180deg, #ffffff, #f8fbff);
 }
 
-.card-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.eyebrow {
-  margin: 0 0 8px;
-  font-size: 12px;
-  letter-spacing: 0.14em;
-  font-weight: 700;
-  color: #0284c7;
-}
-
-.job-card h3 {
-  margin: 0;
-  font-size: 26px;
-  color: #0f172a;
-}
-
 .salary {
-  margin-top: 18px;
+  margin-top: 8px;
   font-size: 22px;
   font-weight: 800;
   color: #0f766e;

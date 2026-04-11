@@ -1,4 +1,4 @@
-<template>
+﻿<template>
   <div class="shell admin-shell">
     <aside class="sidebar" :class="{ 'is-collapsed': isCollapse }">
       <div class="sidebar-inner">
@@ -7,21 +7,10 @@
         </div>
 
         <el-menu :default-active="$route.fullPath" router class="sidebar-menu" :collapse="false">
-          <template v-for="item in menuItems" :key="item.path">
-            <el-sub-menu v-if="item.children" :index="item.path">
-              <template #title>
-                <el-icon><component :is="item.icon" /></el-icon>
-                <span>{{ item.label }}</span>
-              </template>
-              <el-menu-item v-for="child in item.children" :key="child.path" :index="child.path">
-                <span>{{ child.label }}</span>
-              </el-menu-item>
-            </el-sub-menu>
-            <el-menu-item v-else :index="item.path">
-              <el-icon><component :is="item.icon" /></el-icon>
-              <span>{{ item.label }}</span>
-            </el-menu-item>
-          </template>
+          <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
+            <el-icon><component :is="item.icon" /></el-icon>
+            <span>{{ item.label }}</span>
+          </el-menu-item>
         </el-menu>
       </div>
     </aside>
@@ -36,7 +25,7 @@
             </el-icon>
           </el-button>
           <div class="topbar-title">
-            <p class="topbar-label">管理端</p>
+            <p class="topbar-label">管理后台</p>
             <h2>{{ $route.meta.title || '工作台' }}</h2>
           </div>
         </div>
@@ -50,7 +39,7 @@
           </div>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人信息</el-dropdown-item>
+              <el-dropdown-item command="profile">个人资料</el-dropdown-item>
               <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -65,28 +54,14 @@
 </template>
 
 <script setup>
-import {
-  Bell,
-  Calendar,
-  DataBoard,
-  DocumentChecked,
-  DocumentCopy,
-  Files,
-  FolderOpened,
-  OfficeBuilding,
-  Search,
-  TrendCharts,
-  User,
-  UserFilled,
-  Expand,
-  Fold
-} from '@element-plus/icons-vue'
+import { Expand, Fold } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import request from '@/utils/request'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { useUserStore } from '@/stores/user'
+import { ensureAuthContext } from '@/utils/auth-context'
+import { resolveDesktopMenuItems } from '@/utils/portal-menu'
 
 const route = useRoute()
 const router = useRouter()
@@ -119,6 +94,10 @@ const closeSidebar = () => {
 const isSchoolDirector = computed(() => Boolean(userStore.userInfo?.schoolDirector))
 const isCollegeManager = computed(() => Boolean(userStore.userInfo?.collegeManager))
 const isLabManager = computed(() => Boolean(userStore.userInfo?.labManager))
+const canAuditCreateApplies = computed(() => userStore.hasPermission('lab:create:audit'))
+const canAuditTeacherRegister = computed(() => userStore.hasPermission('teacher:register:audit'))
+const canManageMembers = computed(() => userStore.hasPermission('member:manage'))
+const canManageNotices = computed(() => userStore.hasPermission('notice:manage'))
 
 const roleLabel = computed(() => {
   if (isSchoolDirector.value) return '学校管理员'
@@ -129,46 +108,48 @@ const roleLabel = computed(() => {
 
 const userInitial = computed(() => userStore.realName?.charAt(0) || 'A')
 
-const menuItems = computed(() =>
+const fallbackMenuItems = computed(() =>
   [
-    { path: '/admin/dashboard', label: '工作台', icon: DataBoard },
-    isSchoolDirector.value ? { path: '/admin/search', label: '综合检索', icon: Search } : null,
-    isSchoolDirector.value ? { path: '/admin/colleges', label: '学院管理', icon: OfficeBuilding } : null,
-    isSchoolDirector.value ? { path: '/admin/labs', label: '实验室管理', icon: FolderOpened } : null,
-    isSchoolDirector.value || isCollegeManager.value ? { path: '/admin/create-applies', label: '实验室创建审批', icon: DocumentCopy } : null,
-    isSchoolDirector.value || isCollegeManager.value
-      ? { path: '/admin/teacher-register-applies', label: '教师注册审批', icon: DocumentChecked }
+    { path: '/admin/dashboard', label: '工作台', icon: 'DataBoard' },
+    isSchoolDirector.value || isCollegeManager.value ? { path: '/admin/search', label: '综合搜索', icon: 'Search' } : null,
+    isSchoolDirector.value ? { path: '/admin/colleges', label: '学院管理', icon: 'OfficeBuilding' } : null,
+    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
+      ? { path: '/admin/labs', label: '实验室管理', icon: 'FolderOpened' }
       : null,
-    isSchoolDirector.value || isCollegeManager.value
-      ? { path: '/admin/attendance-tasks', label: '考勤任务', icon: Calendar }
+    canAuditCreateApplies.value ? { path: '/admin/create-applies', label: '创建审批', icon: 'Tickets' } : null,
+    canAuditTeacherRegister.value ? { path: '/admin/teacher-register-applies', label: '教师注册审批', icon: 'UserFilled' } : null,
+    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
+      ? { path: '/admin/attendance-tasks', label: '考勤管理', icon: 'Calendar' }
       : null,
     isSchoolDirector.value || isCollegeManager.value || isLabManager.value
-      ? { path: '/admin/workspace', label: '实验室工作台', icon: Files }
+      ? { path: '/admin/applications', label: '入组申请', icon: 'Tickets' }
       : null,
-    isLabManager.value ? { path: '/admin/plans', label: '招新计划', icon: Calendar } : null,
-    isLabManager.value ? { path: '/admin/applications', label: '成员申请审核', icon: UserFilled } : null,
-    isLabManager.value ? { path: '/admin/members', label: '成员管理', icon: User } : null,
-    isLabManager.value ? { path: '/admin/notices', label: '公告管理', icon: Bell } : null,
-    isSchoolDirector.value || isLabManager.value
-      ? {
-          path: '/admin/statistics',
-          label: '统计分析',
-          icon: TrendCharts,
-          children: [
-            { path: '/admin/statistics?tab=overview', label: '运营概览' },
-            { path: '/admin/statistics?tab=trends', label: '趋势分析' },
-            { path: '/admin/statistics?tab=activity', label: '实时动态' }
-          ]
-        }
+    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
+      ? { path: '/admin/workspace', label: '资料空间', icon: 'Files' }
       : null,
-    { path: '/admin/profile', label: '个人信息', icon: UserFilled }
+    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
+      ? { path: '/admin/devices', label: '设备管理', icon: 'Monitor' }
+      : null,
+    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
+      ? { path: '/admin/statistics', label: '统计分析', icon: 'TrendCharts' }
+      : null,
+    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
+      ? { path: '/admin/profiles', label: '成员资料', icon: 'Files' }
+      : null,
+    canManageMembers.value ? { path: '/admin/members', label: '成员管理', icon: 'UserFilled' } : null,
+    canManageNotices.value ? { path: '/admin/notices', label: '公告管理', icon: 'Bell' } : null,
+    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
+      ? { path: '/admin/audit', label: '审计日志', icon: 'Tickets' }
+      : null,
+    { path: '/admin/notifications', label: '消息中心', icon: 'Bell' },
+    { path: '/admin/profile', label: '个人资料', icon: 'UserFilled' }
   ].filter(Boolean)
 )
 
-const ensureProfile = async () => {
-  if (userStore.userInfo?.id) return
-  const response = await request.get('/api/access/profile')
-  userStore.setUserInfo(response.data || {})
+const menuItems = computed(() => resolveDesktopMenuItems(userStore.menus, fallbackMenuItems.value))
+
+const ensureContext = async () => {
+  await ensureAuthContext(userStore, { force: true })
 }
 
 const handleCommand = async (command) => {
@@ -193,7 +174,7 @@ watch(
 onMounted(() => {
   updateViewport()
   window.addEventListener('resize', updateViewport)
-  ensureProfile()
+  ensureContext()
 })
 
 onBeforeUnmount(() => {
@@ -347,11 +328,12 @@ onBeforeUnmount(() => {
   border: 1px solid #e2e8f0;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   cursor: pointer;
-  transition: all 0.2s;
 }
 
-.user-chip:hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+.user-chip strong {
+  display: block;
+  color: #0f172a;
+  font-size: 14px;
 }
 
 .user-chip span {
@@ -360,92 +342,29 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-.user-chip strong {
-  font-size: 14px;
-  color: #1e293b;
-}
-
 .content {
   flex: 1;
-  overflow-y: auto;
-  padding: 0 24px 24px;
-  background-color: #ffffff;
+  min-height: 0;
+  overflow: auto;
+  padding: 24px;
+  background: #f8fafc;
 }
 
 @media (max-width: 960px) {
   .sidebar {
     position: fixed;
     top: 0;
+    bottom: 0;
     left: 0;
-    z-index: 120;
-    height: 100dvh;
-    border-right: 1px solid #e5e5e5;
-    box-shadow: 0 18px 42px rgba(15, 23, 42, 0.18);
-  }
-
-  .sidebar.is-collapsed {
-    transform: translateX(-100%);
-    opacity: 0;
-    margin-left: 0;
-    pointer-events: none;
-  }
-
-  .content {
-    padding: 0 16px 24px;
+    z-index: 100;
   }
 
   .topbar {
-    padding: 16px;
-  }
-}
-
-@media (max-width: 768px) {
-  .main-shell {
-    height: 100dvh;
-  }
-
-  .topbar {
-    padding: 12px 14px;
-    gap: 12px;
-  }
-
-  .topbar-left {
-    gap: 12px;
-  }
-
-  .topbar-label {
-    font-size: 11px;
-    letter-spacing: 0.12em;
-  }
-
-  .topbar h2 {
-    font-size: 16px;
-  }
-
-  .user-chip {
-    max-width: 132px;
-    gap: 8px;
-    padding: 6px 8px;
-  }
-
-  .user-chip div {
-    min-width: 0;
-  }
-
-  .user-chip span {
-    display: none;
-  }
-
-  .user-chip strong {
-    display: block;
-    font-size: 13px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 14px 16px;
   }
 
   .content {
-    padding: 0 12px 16px;
+    padding: 16px 12px;
   }
 }
 </style>

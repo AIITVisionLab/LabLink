@@ -1,6 +1,20 @@
 const TOKEN_KEY = 'lab_token'
 const USER_INFO_KEY = 'lab_user_info'
 
+function safeReadJson(key) {
+  const raw = localStorage.getItem(key)
+  if (!raw) {
+    return null
+  }
+
+  try {
+    return JSON.parse(raw)
+  } catch (error) {
+    localStorage.removeItem(key)
+    return null
+  }
+}
+
 export function getToken() {
   return localStorage.getItem(TOKEN_KEY)
 }
@@ -14,8 +28,7 @@ export function removeToken() {
 }
 
 export function getUserInfo() {
-  const userInfo = localStorage.getItem(USER_INFO_KEY)
-  return userInfo ? JSON.parse(userInfo) : null
+  return safeReadJson(USER_INFO_KEY)
 }
 
 export function setUserInfo(userInfo) {

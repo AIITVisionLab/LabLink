@@ -3,6 +3,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Capacitor } from '@capacitor/core'
 import { getToken } from './auth'
 import router from '@/router'
+import { resolvePortalLogin } from '@/utils/portal'
 
 const CLOUD_API_ORIGIN = 'http://101.35.79.76'
 
@@ -46,48 +47,50 @@ request.interceptors.request.use(
 request.interceptors.response.use(
   (response) => {
     const res = response.data
+    const success = res?.code === 0 || res?.code === 200
 
-    if (res.code !== 200) {
-      ElMessage.error(res.message || '请求失败')
+    if (!success) {
+      ElMessage.error(res?.message || '请求失败')
 
-      if (res.code === 401) {
-        ElMessageBox.confirm('当前登录状态已失效，请重新登录', '系统提示', {
+      if (res?.code === 401) {
+        ElMessageBox.confirm('登录状态已过期，是否重新登录？', '登录已过期', {
           confirmButtonText: '重新登录',
           cancelButtonText: '取消',
           type: 'warning'
         }).then(() => {
-          router.push('/login')
+          router.push(resolvePortalLogin())
         })
       }
 
-      return Promise.reject(new Error(res.message || '请求失败'))
+      return Promise.reject(new Error(res?.message || '请求失败'))
     }
 
     return res
   },
   (error) => {
     let message = '请求失败'
+    const responseData = error.response?.data
 
     if (error.response) {
       switch (error.response.status) {
         case 400:
-          message = '请求参数错误'
+          message = responseData?.message || '请求参数无效'
           break
         case 401:
-          message = '未授权，请重新登录'
-          router.push('/login')
+          message = responseData?.message || '未登录或登录已过期，请重新登录'
+          router.push(resolvePortalLogin())
           break
         case 403:
-          message = '拒绝访问'
+          message = responseData?.message || '无权访问该资源'
           break
         case 404:
-          message = '请求地址不存在'
+          message = responseData?.message || '资源不存在'
           break
         case 500:
-          message = '服务器内部错误'
+          message = responseData?.message || '服务器内部错误'
           break
         default:
-          message = `请求失败，状态码：${error.response.status}`
+          message = responseData?.message || `请求失败，状态码 ${error.response.status}`
       }
     } else if (error.request) {
       message = '网络连接失败'

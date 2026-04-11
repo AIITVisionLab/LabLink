@@ -1,15 +1,15 @@
-<template>
+﻿<template>
   <div class="m-page">
-    <section class="toolbar">
-      <el-input v-model="filters.keyword" placeholder="搜索实验室名称 / 学院" clearable @clear="resetAndFetch">
+    <section class="toolbar-card">
+      <el-input v-model="filters.keyword" clearable placeholder="搜索实验室名称或学院" @clear="resetAndFetch">
         <template #prefix>
           <el-icon><Search /></el-icon>
         </template>
       </el-input>
-      <el-button type="primary" @click="openDialog">发起</el-button>
+      <el-button type="primary" @click="openDialog">发起申请</el-button>
     </section>
 
-    <section class="toolbar">
+    <section class="toolbar-card compact">
       <el-select v-model="filters.status" clearable placeholder="全部状态" style="width: 100%" @change="resetAndFetch">
         <el-option label="待学院审核" value="submitted" />
         <el-option label="待学校审核" value="college_approved" />
@@ -19,45 +19,44 @@
       <el-button plain :loading="loading" @click="resetAndFetch">刷新</el-button>
     </section>
 
-    <section v-loading="loading" class="list">
-      <article v-for="row in records" :key="row.id" class="card">
+    <section class="card-list">
+      <article v-for="row in records" :key="row.id" class="record-card">
         <div class="card-head">
-          <div class="title">
+          <div>
             <strong>{{ row.labName || '实验室创建申请' }}</strong>
-            <span>{{ row.collegeName || '-' }}</span>
+            <p>{{ row.collegeName || '-' }}</p>
           </div>
-          <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+          <span class="status-pill" :class="statusClass(row.status)">{{ statusLabel(row.status) }}</span>
         </div>
-        <div class="meta">
-          <span>指导教师：{{ row.teacherName || '-' }}</span>
-          <span>申请时间：{{ formatDateTime(row.createTime) }}</span>
+        <div class="info-block">
+          <label>指导教师</label>
+          <div>{{ row.teacherName || '-' }}</div>
         </div>
-        <div class="section">
+        <div class="info-block">
           <label>研究方向</label>
-          <p>{{ row.researchDirection || '-' }}</p>
+          <div>{{ row.researchDirection || '-' }}</div>
         </div>
-        <div class="section">
+        <div class="info-block">
           <label>学院审核</label>
-          <p>{{ row.collegeAuditComment || '待处理' }}</p>
+          <div>{{ row.collegeAuditComment || '待处理' }}</div>
         </div>
-        <div class="section">
+        <div class="info-block">
           <label>学校审核</label>
-          <p>{{ row.schoolAuditComment || '待处理' }}</p>
+          <div>{{ row.schoolAuditComment || '待处理' }}</div>
         </div>
       </article>
 
-      <el-empty v-if="!loading && records.length === 0" description="暂无创建申请" :image-size="80" />
-
-      <div class="load-more">
-        <el-button v-if="hasMore" plain :loading="loadingMore" @click="fetchMore">加载更多</el-button>
-        <span v-else-if="records.length" class="no-more">已到底</span>
-      </div>
+      <el-empty v-if="!loading && records.length === 0" description="暂无创建申请" :image-size="84" />
     </section>
 
+    <div class="load-more">
+      <el-button v-if="hasMore" plain :loading="loadingMore" @click="fetchMore">加载更多</el-button>
+    </div>
+
     <el-dialog v-model="dialogVisible" title="发起实验室创建申请" width="92%">
-      <el-form ref="formRef" :model="form" label-position="top">
+      <el-form :model="form" label-position="top">
         <el-form-item label="所属学院">
-          <el-select v-model="form.collegeId" placeholder="请选择学院" :disabled="Boolean(lockedCollegeId)">
+          <el-select v-model="form.collegeId" placeholder="请选择学院" style="width: 100%" :disabled="Boolean(lockedCollegeId)">
             <el-option v-for="item in colleges" :key="item.id" :label="item.collegeName" :value="item.id" />
           </el-select>
         </el-form-item>
@@ -67,17 +66,17 @@
         <el-form-item label="指导教师">
           <el-input v-model="form.teacherName" placeholder="请输入指导教师" />
         </el-form-item>
-        <el-form-item label="地点">
+        <el-form-item label="位置">
           <el-input v-model="form.location" placeholder="例如：A楼 3-302" />
         </el-form-item>
         <el-form-item label="联系邮箱">
-          <el-input v-model="form.contactEmail" placeholder="用于接收通知（可选）" />
+          <el-input v-model="form.contactEmail" placeholder="用于接收审核通知" />
         </el-form-item>
         <el-form-item label="研究方向">
-          <el-input v-model="form.researchDirection" type="textarea" :rows="3" placeholder="简要描述研究方向" />
+          <el-input v-model="form.researchDirection" type="textarea" :rows="3" />
         </el-form-item>
         <el-form-item label="申请说明">
-          <el-input v-model="form.applyReason" type="textarea" :rows="4" placeholder="为什么需要创建该实验室" />
+          <el-input v-model="form.applyReason" type="textarea" :rows="4" />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -91,28 +90,23 @@
 </template>
 
 <script setup>
-import dayjs from 'dayjs'
+import { Search } from '@element-plus/icons-vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { getCollegeOptions } from '@/api/colleges'
 import { createLabCreateApply, getLabCreateApplyPage } from '@/api/labCreateApplies'
 import { useUserStore } from '@/stores/user'
-import { Search } from '@element-plus/icons-vue'
 
 const userStore = useUserStore()
-
 const loading = ref(false)
 const loadingMore = ref(false)
 const dialogVisible = ref(false)
 const submitting = ref(false)
-
 const pageNum = ref(1)
 const pageSize = 8
 const total = ref(0)
 const records = ref([])
-
 const colleges = ref([])
-const formRef = ref()
 
 const filters = reactive({
   keyword: '',
@@ -130,47 +124,24 @@ const form = reactive({
 })
 
 const lockedCollegeId = computed(() => {
-  const currentCollegeName = userStore.userInfo?.college
-  if (!currentCollegeName) {
+  const collegeName = userStore.userInfo?.collegeName || userStore.userInfo?.college
+  if (!collegeName) {
     return null
   }
-  return colleges.value.find((item) => item.collegeName === currentCollegeName)?.id || null
+  return colleges.value.find((item) => item.collegeName === collegeName)?.id || null
 })
 
-const hasMore = computed(() => records.value.length < (total.value || 0))
-
-const statusLabel = (value) => {
-  const map = {
-    submitted: '待学院审核',
-    college_approved: '待学校审核',
-    approved: '已通过',
-    rejected: '已驳回'
-  }
-  return map[value] || value || '-'
-}
-
-const statusTagType = (value) => {
-  const map = {
-    submitted: 'warning',
-    college_approved: 'primary',
-    approved: 'success',
-    rejected: 'danger'
-  }
-  return map[value] || 'info'
-}
-
-const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
+const hasMore = computed(() => records.value.length < total.value)
 
 const fetchPage = async (page) => {
-  const res = await getLabCreateApplyPage({
+  const response = await getLabCreateApplyPage({
     pageNum: page,
     pageSize,
-    keyword: filters.keyword?.trim() || undefined,
+    keyword: filters.keyword || undefined,
     status: filters.status || undefined
   })
-  const pageData = res.data || {}
-  total.value = pageData.total || 0
-  return pageData.records || []
+  total.value = Number(response.data?.total || 0)
+  return response.data?.records || []
 }
 
 const resetAndFetch = async () => {
@@ -184,12 +155,14 @@ const resetAndFetch = async () => {
 }
 
 const fetchMore = async () => {
-  if (loadingMore.value || !hasMore.value) return
+  if (loadingMore.value || !hasMore.value) {
+    return
+  }
   loadingMore.value = true
   try {
-    const next = pageNum.value + 1
-    const list = await fetchPage(next)
-    pageNum.value = next
+    const nextPage = pageNum.value + 1
+    const list = await fetchPage(nextPage)
+    pageNum.value = nextPage
     records.value = records.value.concat(list)
   } finally {
     loadingMore.value = false
@@ -197,15 +170,13 @@ const fetchMore = async () => {
 }
 
 const resetForm = () => {
-  Object.assign(form, {
-    collegeId: lockedCollegeId.value || undefined,
-    labName: '',
-    teacherName: userStore.realName || '',
-    location: '',
-    contactEmail: userStore.userInfo?.email || '',
-    researchDirection: '',
-    applyReason: ''
-  })
+  form.collegeId = lockedCollegeId.value || undefined
+  form.labName = ''
+  form.teacherName = userStore.realName || ''
+  form.location = ''
+  form.contactEmail = userStore.userInfo?.email || ''
+  form.researchDirection = ''
+  form.applyReason = ''
 }
 
 const openDialog = () => {
@@ -213,156 +184,149 @@ const openDialog = () => {
   dialogVisible.value = true
 }
 
-const validateForm = () => {
-  if (!form.collegeId) {
-    ElMessage.warning('请选择所属学院')
-    return false
-  }
-  if (!form.labName.trim()) {
-    ElMessage.warning('请输入实验室名称')
-    return false
-  }
-  if (!form.teacherName.trim()) {
-    ElMessage.warning('请输入指导教师')
-    return false
-  }
-  if (!form.researchDirection.trim()) {
-    ElMessage.warning('请输入研究方向')
-    return false
-  }
-  if (!form.applyReason.trim()) {
-    ElMessage.warning('请输入申请说明')
-    return false
-  }
-  return true
-}
-
 const submitApply = async () => {
-  if (!validateForm()) return
+  if (!form.collegeId || !form.labName.trim() || !form.teacherName.trim() || !form.researchDirection.trim() || !form.applyReason.trim()) {
+    ElMessage.warning('请完整填写申请信息')
+    return
+  }
   submitting.value = true
   try {
     await createLabCreateApply({ ...form })
-    ElMessage.success('实验室创建申请已提交')
+    ElMessage.success('创建申请已提交')
     dialogVisible.value = false
-    resetForm()
     await resetAndFetch()
   } finally {
     submitting.value = false
   }
 }
 
-watch(
-  () => lockedCollegeId.value,
-  (value) => {
-    if (value && !form.collegeId) {
-      form.collegeId = value
-    }
-  }
-)
+const statusLabel = (value) => ({
+  submitted: '待学院审核',
+  college_approved: '待学校审核',
+  approved: '已通过',
+  rejected: '已驳回'
+}[value] || value || '-')
+
+const statusClass = (value) => ({
+  submitted: 'pending',
+  college_approved: 'progress',
+  approved: 'success',
+  rejected: 'danger'
+}[value] || 'default')
 
 onMounted(async () => {
-  const res = await getCollegeOptions()
-  colleges.value = res.data || []
+  const response = await getCollegeOptions()
+  colleges.value = response.data || []
   await resetAndFetch()
 })
 </script>
 
 <style scoped>
 .m-page {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.toolbar {
   display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 10px;
-  align-items: center;
+  gap: 14px;
 }
 
-.list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.card {
-  display: grid;
-  gap: 12px;
-  padding: 14px;
+.toolbar-card,
+.record-card {
   border-radius: 18px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(226, 232, 240, 0.92);
+}
+
+.toolbar-card {
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.toolbar-card.compact {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.card-list {
+  display: grid;
+  gap: 10px;
+}
+
+.record-card {
+  padding: 14px;
+  display: grid;
+  gap: 10px;
 }
 
 .card-head {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
 }
 
-.title {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.title strong {
+.card-head strong,
+.info-block label {
   color: #0f172a;
-  font-size: 15px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
-.title span {
+.card-head p,
+.info-block div {
   color: #64748b;
-  font-size: 12px;
 }
 
-.meta {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: #64748b;
-  font-size: 12px;
+.card-head p {
+  margin: 6px 0 0;
 }
 
-.section {
+.info-block {
   display: grid;
   gap: 6px;
 }
 
-.section label {
-  color: #0f766e;
-  font-size: 12px;
+.info-block label {
   font-weight: 700;
+  font-size: 13px;
 }
 
-.section p {
-  color: #334155;
-  font-size: 13px;
+.info-block div {
   line-height: 1.7;
   white-space: pre-wrap;
 }
 
+.status-pill {
+  height: fit-content;
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-pill.pending {
+  color: #b45309;
+  background: rgba(254, 243, 199, 0.92);
+}
+
+.status-pill.progress {
+  color: #1d4ed8;
+  background: rgba(219, 234, 254, 0.92);
+}
+
+.status-pill.success {
+  color: #047857;
+  background: rgba(209, 250, 229, 0.92);
+}
+
+.status-pill.danger {
+  color: #b91c1c;
+  background: rgba(254, 226, 226, 0.92);
+}
+
 .load-more {
-  padding: 10px 0 2px 0;
   display: flex;
   justify-content: center;
 }
 
-.no-more {
-  font-size: 12px;
-  color: #94a3b8;
-}
-
 .dialog-actions {
   display: flex;
-  gap: 10px;
   justify-content: flex-end;
+  gap: 10px;
 }
 </style>

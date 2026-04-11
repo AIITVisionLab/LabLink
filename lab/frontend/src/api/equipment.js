@@ -8,6 +8,37 @@ export function getEquipmentList(params) {
   })
 }
 
+export function getEquipmentCategories(params) {
+  return request({
+    url: '/api/equipment/categories',
+    method: 'get',
+    params
+  })
+}
+
+export function createEquipmentCategory(data) {
+  return request({
+    url: '/api/equipment/categories',
+    method: 'post',
+    data
+  })
+}
+
+export function updateEquipmentCategory(categoryId, data) {
+  return request({
+    url: `/api/equipment/categories/${categoryId}`,
+    method: 'put',
+    data
+  })
+}
+
+export function deleteEquipmentCategory(categoryId) {
+  return request({
+    url: `/api/equipment/categories/${categoryId}`,
+    method: 'delete'
+  })
+}
+
 export function addEquipment(data) {
   return request({
     url: '/api/equipment/add',
@@ -66,6 +97,30 @@ export function auditBorrow(data) {
 export function returnEquipment(data) {
   return request({
     url: '/api/equipment/borrow/return',
+    method: 'post',
+    data
+  })
+}
+
+export function getMaintenanceList(params) {
+  return request({
+    url: '/api/equipment/maintenance/list',
+    method: 'get',
+    params
+  })
+}
+
+export function createMaintenanceRecord(data) {
+  return request({
+    url: '/api/equipment/maintenance',
+    method: 'post',
+    data
+  })
+}
+
+export function handleMaintenanceRecord(data) {
+  return request({
+    url: '/api/equipment/maintenance/handle',
     method: 'post',
     data
   })

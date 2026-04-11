@@ -1,6 +1,8 @@
 package com.lab.recruitment.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.lab.recruitment.dto.AttendanceLeaveApplyDTO;
+import com.lab.recruitment.dto.AttendanceLeaveReviewDTO;
 import com.lab.recruitment.dto.AttendanceMakeupRequestDTO;
 import com.lab.recruitment.dto.AttendanceDutyUpsertDTO;
 import com.lab.recruitment.dto.AttendanceRecordReviewDTO;
@@ -130,6 +132,22 @@ public class AttendanceWorkflowController {
         }
     }
 
+    @GetMapping("/lab/leaves")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN', 'TEACHER')")
+    public Result<Page<Map<String, Object>>> getPendingLabLeaves(@RequestParam(defaultValue = "1") Integer pageNum,
+                                                                 @RequestParam(defaultValue = "10") Integer pageSize,
+                                                                 @RequestParam(required = false) Long labId,
+                                                                 @RequestParam(required = false) String leaveStatus,
+                                                                 @RequestParam(required = false) String keyword) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(attendanceWorkflowService.getPendingLeavePage(
+                    pageNum, pageSize, labId, leaveStatus, keyword, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
     @PostMapping("/lab/records/review")
     @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public Result<Boolean> reviewLabAttendanceRecord(@Validated @RequestBody AttendanceRecordReviewDTO reviewDTO) {
@@ -187,6 +205,17 @@ public class AttendanceWorkflowController {
         }
     }
 
+    @PostMapping("/student/session/leave")
+    @PreAuthorize("hasRole('STUDENT')")
+    public Result<Map<String, Object>> studentApplyLeave(@Validated @RequestBody AttendanceLeaveApplyDTO leaveDTO) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(attendanceWorkflowService.studentApplyLeave(leaveDTO, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
     @PostMapping("/student/session/makeup")
     @PreAuthorize("hasRole('STUDENT')")
     public Result<Boolean> studentRequestMakeup(@Validated @RequestBody AttendanceMakeupRequestDTO requestDTO) {
@@ -205,6 +234,30 @@ public class AttendanceWorkflowController {
         try {
             User currentUser = currentUserAccessor.getCurrentUser();
             return Result.success(attendanceWorkflowService.getStudentHistory(pageNum, pageSize, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/lab/leaves/{leaveId}/approve")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Map<String, Object>> approveLeave(@PathVariable Long leaveId,
+                                                    @Validated @RequestBody AttendanceLeaveReviewDTO reviewDTO) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(attendanceWorkflowService.approveLeave(leaveId, reviewDTO, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/lab/leaves/{leaveId}/reject")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Map<String, Object>> rejectLeave(@PathVariable Long leaveId,
+                                                   @Validated @RequestBody AttendanceLeaveReviewDTO reviewDTO) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(attendanceWorkflowService.rejectLeave(leaveId, reviewDTO, currentUser));
         } catch (Exception e) {
             return Result.error(e.getMessage());
         }

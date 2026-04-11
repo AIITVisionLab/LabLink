@@ -1,7 +1,7 @@
 <template>
   <div class="growth-bank-page">
-    <el-card shadow="never">
-      <template #header>
+    <TablePageCard title="Growth Question Bank" subtitle="Shared Practice Questions" :count-label="`${pagination.total} items`">
+      <template #header-extra>
         <div class="header-row">
           <div>
             <strong>成长中心共享题库</strong>
@@ -13,6 +13,7 @@
         </div>
       </template>
 
+      <template #filters>
       <div class="toolbar">
         <el-select v-model="filters.trackCode" clearable placeholder="方向" style="width: 180px">
           <el-option
@@ -36,6 +37,7 @@
         />
         <el-button type="primary" @click="handleSearch">搜索</el-button>
       </div>
+      </template>
 
       <el-table v-loading="loading" :data="rows" border stripe>
         <el-table-column prop="title" label="题目" min-width="260" show-overflow-tooltip />
@@ -71,7 +73,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination">
+      <template #pagination>
         <el-pagination
           v-model:current-page="pagination.pageNum"
           v-model:page-size="pagination.pageSize"
@@ -79,8 +81,8 @@
           layout="total, prev, pager, next"
           @current-change="fetchList"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
 
     <el-dialog v-model="editor.visible" :title="editor.id ? '编辑题目' : '新增题目'" width="980px">
       <el-form label-position="top" class="editor-form">
@@ -242,6 +244,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import {
   deleteAdminGrowthQuestion,
   getAdminGrowthQuestionBank,
@@ -555,26 +558,18 @@ onMounted(() => {
 .toolbar,
 .block-head {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
 }
 
-.header-row p {
-  margin: 6px 0 0;
-  color: #64748b;
+.header-row > div:first-child {
+  display: none;
 }
 
 .toolbar {
-  margin-bottom: 16px;
   justify-content: flex-start;
-}
-
-.pagination {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 16px;
 }
 
 .editor-form {

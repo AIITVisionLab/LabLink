@@ -1,156 +1,112 @@
-<template>
+﻿<template>
   <div class="m-page">
-    <section class="hero">
-      <div class="hero-text">
-        <p class="hero-eyebrow">学生端</p>
-        <h1 class="hero-title">你好，{{ userStore.realName || '同学' }}</h1>
-        <p class="hero-sub">快速查看实验室动态、公告与我的申请。</p>
+    <section class="hero-card">
+      <div>
+        <p class="eyebrow">Student Mobile</p>
+        <h1>{{ userStore.realName || '同学' }}，你好</h1>
+        <p>快速查看实验室动态、报名进度和消息提醒。</p>
       </div>
-      <button class="hero-refresh" type="button" :disabled="loading" @click="refresh">
-        <el-icon :size="18"><Refresh /></el-icon>
+      <button class="refresh-btn" type="button" :disabled="loading" @click="refresh">刷新</button>
+    </section>
+
+    <section class="metric-grid">
+      <article class="metric-card"><span>实验室总数</span><strong>{{ stats.labCount ?? 0 }}</strong></article>
+      <article class="metric-card"><span>学院数量</span><strong>{{ stats.collegeCount ?? 0 }}</strong></article>
+      <article class="metric-card"><span>我的申请</span><strong>{{ myApplyTotal }}</strong></article>
+      <article class="metric-card"><span>未读消息</span><strong>{{ unreadCount }}</strong></article>
+    </section>
+
+    <section class="quick-grid">
+      <button v-for="item in quickActions" :key="item.path" class="quick-card" type="button" @click="router.push(item.path)">
+        <strong>{{ item.title }}</strong>
+        <span>{{ item.description }}</span>
       </button>
     </section>
 
-    <section class="grid">
-      <div class="stat-card">
-        <p class="stat-label">实验室总数</p>
-        <strong class="stat-value">{{ stats.labCount ?? '--' }}</strong>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">学院数量</p>
-        <strong class="stat-value">{{ stats.collegeCount ?? '--' }}</strong>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">我的申请</p>
-        <strong class="stat-value">{{ myApplyTotal ?? '--' }}</strong>
-      </div>
-      <div class="stat-card">
-        <p class="stat-label">我的实验室</p>
-        <strong class="stat-value">{{ userStore.userInfo?.labId ? `#${userStore.userInfo.labId}` : '未加入' }}</strong>
-      </div>
-    </section>
-
-    <section class="quick">
-      <button class="quick-card" type="button" @click="router.push('/m/student/labs')">
-        <div class="quick-icon labs">
-          <el-icon :size="22"><OfficeBuilding /></el-icon>
-        </div>
-        <div class="quick-body">
-          <strong>实验室总览</strong>
-          <span>浏览与申请加入</span>
-        </div>
-        <el-icon :size="18" class="quick-arrow"><ArrowRight /></el-icon>
-      </button>
-      <button class="quick-card" type="button" @click="router.push('/m/student/applications')">
-        <div class="quick-icon apps">
-          <el-icon :size="22"><Document /></el-icon>
-        </div>
-        <div class="quick-body">
-          <strong>我的申请</strong>
-          <span>查看审核进度</span>
-        </div>
-        <el-icon :size="18" class="quick-arrow"><ArrowRight /></el-icon>
-      </button>
-      <button class="quick-card" type="button" @click="router.push('/m/student/notices')">
-        <div class="quick-icon notices">
-          <el-icon :size="22"><Bell /></el-icon>
-        </div>
-        <div class="quick-body">
-          <strong>公告中心</strong>
-          <span>最新通知与提醒</span>
-        </div>
-        <el-icon :size="18" class="quick-arrow"><ArrowRight /></el-icon>
-      </button>
-    </section>
-
-    <section class="panel">
-      <header class="panel-header">
+    <section class="panel-card">
+      <header class="panel-head">
         <h2>最新公告</h2>
-        <button class="panel-link" type="button" @click="router.push('/m/student/notices')">更多</button>
+        <button class="text-btn" type="button" @click="router.push('/m/student/notices')">更多</button>
       </header>
       <div v-if="latestNotices.length" class="notice-list">
-        <button
-          v-for="item in latestNotices"
-          :key="item.id"
-          class="notice-item"
-          type="button"
-          @click="openNotice(item)"
-        >
-          <div class="notice-main">
-            <strong class="notice-title">{{ item.title || '公告' }}</strong>
-            <span class="notice-sub">{{ formatTime(item.createTime || item.createdAt) }}</span>
-          </div>
-          <el-icon :size="18" class="notice-arrow"><ArrowRight /></el-icon>
+        <button v-for="item in latestNotices" :key="item.id" class="notice-card" type="button" @click="openNotice(item)">
+          <strong>{{ item.title || '公告' }}</strong>
+          <span>{{ formatDate(item.publishTime || item.createTime || item.createdAt) }}</span>
         </button>
       </div>
-      <el-empty v-else description="暂无公告" :image-size="70" />
+      <el-empty v-else description="暂无公告" :image-size="72" />
     </section>
 
     <el-drawer v-model="drawerVisible" :with-header="false" size="92%">
-      <div class="drawer">
+      <div class="drawer-body">
         <div class="drawer-head">
-          <strong class="drawer-title">{{ activeNotice?.title || '公告详情' }}</strong>
-          <button class="drawer-close" type="button" @click="drawerVisible = false">
-            <el-icon :size="18"><Close /></el-icon>
-          </button>
+          <strong>{{ activeNotice?.title || '公告详情' }}</strong>
+          <button class="drawer-close" type="button" @click="drawerVisible = false">关闭</button>
         </div>
-        <p class="drawer-meta">{{ formatTime(activeNotice?.createTime || activeNotice?.createdAt) }}</p>
-        <div class="drawer-body">{{ activeNotice?.content || '暂无内容' }}</div>
+        <p class="drawer-meta">{{ formatDate(activeNotice?.publishTime || activeNotice?.createTime || activeNotice?.createdAt) }}</p>
+        <div class="drawer-content">{{ activeNotice?.content || '暂无内容' }}</div>
       </div>
     </el-drawer>
   </div>
 </template>
 
 <script setup>
-import { ArrowRight, Bell, Close, Document, OfficeBuilding, Refresh } from '@element-plus/icons-vue'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getLabStats } from '@/api/lab'
 import { getMyLabApplyPage } from '@/api/labApplies'
 import { getLatestNotices } from '@/api/notices'
+import { getUnreadNotificationCount } from '@/api/notifications'
 import { useUserStore } from '@/stores/user'
 
 const router = useRouter()
 const userStore = useUserStore()
-
 const loading = ref(false)
 const stats = ref({})
-const myApplyTotal = ref(null)
+const myApplyTotal = ref(0)
+const unreadCount = ref(0)
 const latestNotices = ref([])
-
 const drawerVisible = ref(false)
 const activeNotice = ref(null)
+const hasLabAccess = computed(() => Boolean(userStore.userInfo?.labId))
 
-const formatTime = (value) => {
-  if (!value) return ''
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return String(value)
-  const y = date.getFullYear()
-  const m = String(date.getMonth() + 1).padStart(2, '0')
-  const d = String(date.getDate()).padStart(2, '0')
-  return `${y}-${m}-${d}`
-}
-
-const openNotice = (notice) => {
-  activeNotice.value = notice
-  drawerVisible.value = true
-}
+const quickActions = computed(() =>
+  [
+    { path: '/m/student/labs', title: '实验室广场', description: '浏览实验室并提交申请' },
+    { path: '/m/student/applications', title: '我的申请', description: '跟踪审核进度和反馈' },
+    hasLabAccess.value ? { path: '/m/student/attendance', title: '移动签到', description: '输入动态签到码，查看考勤历史' } : null,
+    { path: '/m/student/notifications', title: '消息中心', description: '集中查看系统通知' }
+  ].filter(Boolean)
+)
 
 const refresh = async () => {
   loading.value = true
   try {
-    const [statsRes, noticeRes, applyRes] = await Promise.all([
+    const [statsRes, applyRes, noticesRes, unreadRes] = await Promise.all([
       getLabStats(),
-      getLatestNotices({ size: 5 }),
-      getMyLabApplyPage({ pageNum: 1, pageSize: 1 })
+      getMyLabApplyPage({ pageNum: 1, pageSize: 1 }),
+      getLatestNotices({ size: 4 }),
+      getUnreadNotificationCount()
     ])
     stats.value = statsRes.data || {}
-    latestNotices.value = noticeRes.data || []
-    const page = applyRes.data || {}
-    myApplyTotal.value = page.total ?? page.totalCount ?? page.count ?? 0
+    myApplyTotal.value = Number(applyRes.data?.total || 0)
+    latestNotices.value = noticesRes.data || []
+    unreadCount.value = unreadRes.data?.unreadCount || 0
   } finally {
     loading.value = false
   }
+}
+
+const openNotice = (item) => {
+  activeNotice.value = item
+  drawerVisible.value = true
+}
+
+const formatDate = (value) => {
+  if (!value) return '-'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
 }
 
 onMounted(() => {
@@ -160,249 +116,157 @@ onMounted(() => {
 
 <style scoped>
 .m-page {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 14px;
 }
 
-.hero {
-  position: relative;
-  border-radius: 18px;
-  padding: 18px 16px;
-  background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
-  color: #ffffff;
-  overflow: hidden;
+.hero-card,
+.metric-card,
+.quick-card,
+.panel-card {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(226, 232, 240, 0.92);
 }
 
-.hero-text {
-  max-width: 260px;
+.hero-card {
+  padding: 18px;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.94), rgba(37, 99, 235, 0.88));
+  color: #f8fafc;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
 }
 
-.hero-eyebrow {
-  font-size: 12px;
-  opacity: 0.85;
-  margin-bottom: 6px;
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.82;
 }
 
-.hero-title {
-  font-size: 20px;
-  line-height: 1.2;
-  margin-bottom: 8px;
+.hero-card h1 {
+  margin: 0 0 8px;
+  font-size: 24px;
 }
 
-.hero-sub {
-  font-size: 13px;
-  opacity: 0.85;
-  line-height: 1.5;
+.hero-card p {
+  margin: 0;
+  line-height: 1.6;
+  color: rgba(226, 232, 240, 0.9);
 }
 
-.hero-refresh {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 40px;
-  height: 40px;
+.refresh-btn,
+.drawer-close {
+  height: fit-content;
   border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  padding: 10px 14px;
 }
 
-.grid {
+.refresh-btn {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+  color: #f8fafc;
+}
+
+.metric-grid,
+.quick-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
 }
 
-.stat-card {
-  border-radius: 16px;
-  padding: 14px 14px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(226, 232, 240, 0.9);
+.metric-card,
+.quick-card {
+  padding: 14px;
+  display: grid;
+  gap: 6px;
 }
 
-.stat-label {
+.metric-card span,
+.quick-card span,
+.notice-card span,
+.drawer-meta {
   color: #64748b;
-  font-size: 12px;
-  margin-bottom: 6px;
 }
 
-.stat-value {
-  font-size: 18px;
+.metric-card strong,
+.quick-card strong,
+.notice-card strong,
+.panel-head h2,
+.drawer-head strong {
   color: #0f172a;
 }
 
-.quick {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.metric-card strong {
+  font-size: 24px;
 }
 
 .quick-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px;
-  border-radius: 16px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  background: rgba(255, 255, 255, 0.92);
   text-align: left;
 }
 
-.quick-icon {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: #ffffff;
-}
-
-.quick-icon.labs {
-  background: linear-gradient(135deg, #2563eb 0%, #60a5fa 100%);
-}
-
-.quick-icon.apps {
-  background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%);
-}
-
-.quick-icon.notices {
-  background: linear-gradient(135deg, #0f766e 0%, #5eead4 100%);
-}
-
-.quick-body {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.quick-body strong {
-  color: #0f172a;
-  font-size: 14px;
-}
-
-.quick-body span {
-  color: #64748b;
-  font-size: 12px;
-}
-
-.quick-arrow {
-  color: #94a3b8;
-}
-
-.panel {
-  border-radius: 18px;
+.panel-card {
   padding: 14px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(226, 232, 240, 0.9);
 }
 
-.panel-header {
+.panel-head {
   display: flex;
-  align-items: baseline;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 10px;
 }
 
-.panel-header h2 {
-  font-size: 15px;
-  color: #0f172a;
+.panel-head h2 {
+  margin: 0;
+  font-size: 16px;
 }
 
-.panel-link {
+.text-btn {
   border: 0;
   background: transparent;
   color: #2563eb;
-  font-weight: 600;
-  font-size: 13px;
+  font-weight: 700;
 }
 
 .notice-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
   gap: 10px;
 }
 
-.notice-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 12px;
+.notice-card {
   border-radius: 16px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  padding: 12px;
   background: #ffffff;
+  border: 1px solid rgba(226, 232, 240, 0.86);
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
   text-align: left;
 }
 
-.notice-main {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-width: 0;
-}
-
-.notice-title {
-  color: #0f172a;
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.notice-sub {
-  color: #64748b;
-  font-size: 12px;
-}
-
-.notice-arrow {
-  color: #94a3b8;
-}
-
-.drawer {
-  padding: 14px 14px calc(14px + env(safe-area-inset-bottom)) 14px;
+.drawer-body {
+  padding: 14px 14px calc(14px + env(safe-area-inset-bottom));
 }
 
 .drawer-head {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
   margin-bottom: 8px;
 }
 
-.drawer-title {
-  font-size: 16px;
-  color: #0f172a;
-}
-
-.drawer-close {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
-  background: #ffffff;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.drawer-meta {
-  color: #64748b;
-  font-size: 12px;
-  margin-bottom: 10px;
-}
-
-.drawer-body {
+.drawer-content {
   color: #334155;
-  font-size: 14px;
   line-height: 1.8;
   white-space: pre-wrap;
+}
+
+@media (max-width: 480px) {
+  .metric-grid,
+  .quick-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

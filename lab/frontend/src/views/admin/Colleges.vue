@@ -28,7 +28,7 @@
       </el-form>
     </section>
 
-    <el-card shadow="never" class="panel-card">
+    <TablePageCard title="Colleges" subtitle="Directory" :count-label="`${pagination.total} items`">
       <el-table v-loading="loading" :data="colleges" stripe>
         <el-table-column prop="collegeCode" label="学院编码" min-width="140" />
         <el-table-column prop="collegeName" label="学院名称" min-width="180" />
@@ -46,7 +46,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-row">
+      <template #pagination>
         <el-pagination
           background
           layout="prev, pager, next, total"
@@ -55,8 +55,8 @@
           :total="pagination.total"
           @current-change="handlePageChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑学院' : '新增学院'" width="520px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
@@ -87,6 +87,7 @@
 <script setup>
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { onMounted, reactive, ref } from 'vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { createCollege, deleteCollege, getCollegePage, updateCollege } from '@/api/colleges'
 
 const loading = ref(false)
@@ -186,11 +187,3 @@ onMounted(() => {
   loadColleges()
 })
 </script>
-
-<style scoped>
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
-}
-</style>

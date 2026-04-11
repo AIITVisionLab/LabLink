@@ -11,6 +11,7 @@ import com.lab.recruitment.mapper.LabTeacherRelationMapper;
 import com.lab.recruitment.mapper.PlatformPostMapper;
 import com.lab.recruitment.mapper.UserIdentityMapper;
 import com.lab.recruitment.mapper.UserMapper;
+import com.lab.recruitment.service.PlatformCacheService;
 import com.lab.recruitment.service.UserAccessService;
 import com.lab.recruitment.support.UserAccessProfile;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +54,9 @@ public class UserAccessServiceImpl implements UserAccessService {
 
     @Autowired
     private LabTeacherRelationMapper labTeacherRelationMapper;
+
+    @Autowired
+    private PlatformCacheService platformCacheService;
 
     @Override
     public UserAccessProfile buildProfile(User user) {
@@ -189,6 +193,7 @@ public class UserAccessServiceImpl implements UserAccessService {
         update.setRole(targetRole);
         update.setLabId(targetLabId);
         userMapper.updateById(update);
+        platformCacheService.evictUserAuthCache(user.getId());
     }
 
     private String resolvePrimaryIdentity(User user) {

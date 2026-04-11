@@ -63,21 +63,23 @@
 
       <el-tabs v-model="activeTab" class="workspace-tabs">
         <el-tab-pane label="考勤看板" name="attendance">
-          <el-card shadow="never" class="panel-card">
-            <template #header>
-              <div class="panel-header">
-                <span>当日考勤登记</span>
-                <div class="toolbar-actions compact">
-                  <el-date-picker
-                    v-model="attendanceDate"
-                    type="date"
-                    value-format="YYYY-MM-DD"
-                    placeholder="选择日期"
-                    @change="fetchAttendance"
-                  />
-                  <el-button type="primary" plain @click="exportAttendance">导出名单</el-button>
-                  <el-button @click="loadAttendanceSummary">刷新统计</el-button>
-                </div>
+          <TablePageCard
+            class="panel-card"
+            title="当日考勤登记"
+            subtitle="考勤看板"
+            :count-label="`${attendanceRows.length} 条`"
+          >
+            <template #header-extra>
+              <div class="toolbar-actions compact">
+                <el-date-picker
+                  v-model="attendanceDate"
+                  type="date"
+                  value-format="YYYY-MM-DD"
+                  placeholder="选择日期"
+                  @change="fetchAttendance"
+                />
+                <el-button type="primary" plain @click="exportAttendance">导出名单</el-button>
+                <el-button @click="loadAttendanceSummary">刷新统计</el-button>
               </div>
             </template>
 
@@ -99,7 +101,7 @@
                     </el-select>
                   </template>
                   <template v-else>
-                    <el-tag :type="attendanceStatusType(row.draftStatus)">{{ attendanceStatusText(row.draftStatus) }}</el-tag>
+                    <StatusTag :value="row.draftStatus" :label-map="attendanceStatusLabels" :type-map="attendanceStatusTypes" />
                   </template>
                 </template>
               </el-table-column>
@@ -124,17 +126,19 @@
                 </template>
               </el-table-column>
             </el-table>
-          </el-card>
+          </TablePageCard>
         </el-tab-pane>
 
         <el-tab-pane label="资料空间" name="space">
           <div class="content-grid space-grid">
-            <el-card shadow="never" class="panel-card">
-              <template #header>
-                <div class="panel-header">
-                  <span>目录树</span>
-                  <el-button v-if="workspaceEditable" type="primary" link @click="openFolderDialog()">新建目录</el-button>
-                </div>
+            <TablePageCard
+              class="panel-card"
+              title="目录树"
+              subtitle="资料空间"
+              :count-label="`${flatFolders.length} 项`"
+            >
+              <template #header-extra>
+                <el-button v-if="workspaceEditable" type="primary" link @click="openFolderDialog()">新建目录</el-button>
               </template>
 
               <el-tree
@@ -154,25 +158,27 @@
                 </template>
               </el-tree>
               <el-empty v-else description="暂无目录" />
-            </el-card>
+            </TablePageCard>
 
-            <el-card shadow="never" class="panel-card">
-              <template #header>
-                <div class="panel-header">
-                  <span>文件列表</span>
-                  <div class="toolbar-actions compact">
-                    <el-input v-model="fileFilters.keyword" clearable placeholder="搜索文件名 / 上传人" style="width: 220px" />
-                    <el-select v-model="fileFilters.archiveFlag" clearable placeholder="归档状态" style="width: 140px">
-                      <el-option label="全部" :value="null" />
-                      <el-option label="未归档" :value="0" />
-                      <el-option label="已归档" :value="1" />
-                    </el-select>
-                    <el-button @click="loadFiles">查询</el-button>
-                    <el-button type="primary" plain @click="exportFiles">导出清单</el-button>
-                    <el-upload v-if="workspaceEditable" :show-file-list="false" :http-request="handleUpload" accept="*">
-                      <el-button type="primary">上传文件</el-button>
-                    </el-upload>
-                  </div>
+            <TablePageCard
+              class="panel-card"
+              title="文件列表"
+              subtitle="资料空间"
+              :count-label="`${filePagination.total} 份`"
+            >
+              <template #filters>
+                <div class="toolbar-actions compact">
+                  <el-input v-model="fileFilters.keyword" clearable placeholder="搜索文件名 / 上传人" style="width: 220px" />
+                  <el-select v-model="fileFilters.archiveFlag" clearable placeholder="归档状态" style="width: 140px">
+                    <el-option label="全部" :value="null" />
+                    <el-option label="未归档" :value="0" />
+                    <el-option label="已归档" :value="1" />
+                  </el-select>
+                  <el-button @click="loadFiles">查询</el-button>
+                  <el-button type="primary" plain @click="exportFiles">导出清单</el-button>
+                  <el-upload v-if="workspaceEditable" :show-file-list="false" :http-request="handleUpload" accept="*">
+                    <el-button type="primary">上传文件</el-button>
+                  </el-upload>
                 </div>
               </template>
 
@@ -188,9 +194,7 @@
                 </el-table-column>
                 <el-table-column label="归档" min-width="100">
                   <template #default="{ row }">
-                    <el-tag :type="row.archiveFlag === 1 ? 'success' : 'info'">
-                      {{ row.archiveFlag === 1 ? '已归档' : '未归档' }}
-                    </el-tag>
+                    <StatusTag :value="row.archiveFlag" :label-map="archiveFlagLabels" :type-map="archiveFlagTypes" />
                   </template>
                 </el-table-column>
                 <el-table-column label="操作" width="180" fixed="right">
@@ -203,7 +207,7 @@
                 </el-table-column>
               </el-table>
 
-              <div class="pagination-row">
+              <template #pagination>
                 <el-pagination
                   background
                   layout="prev, pager, next, total"
@@ -212,31 +216,33 @@
                   :total="filePagination.total"
                   @current-change="handleFilePageChange"
                 />
-              </div>
-            </el-card>
+              </template>
+            </TablePageCard>
           </div>
         </el-tab-pane>
 
         <el-tab-pane v-if="workspaceEditable" label="退组申请" name="exit">
-          <el-card shadow="never" class="panel-card">
-            <template #header>
-              <div class="panel-header">
-                <span>实验室退组申请</span>
-                <div class="toolbar-actions compact">
-                  <el-input
-                    v-model="exitSearch.realName"
-                    clearable
-                    placeholder="搜索学生姓名"
-                    style="width: 220px"
-                    @keyup.enter="handleExitSearch"
-                  />
-                  <el-select v-model="exitSearch.status" clearable placeholder="状态" style="width: 140px">
-                    <el-option label="待审核" :value="0" />
-                    <el-option label="已通过" :value="1" />
-                    <el-option label="已驳回" :value="2" />
-                  </el-select>
-                  <el-button @click="handleExitSearch">查询</el-button>
-                </div>
+          <TablePageCard
+            class="panel-card"
+            title="实验室退组申请"
+            subtitle="成员流转"
+            :count-label="`${exitPagination.total} 条`"
+          >
+            <template #filters>
+              <div class="toolbar-actions compact">
+                <el-input
+                  v-model="exitSearch.realName"
+                  clearable
+                  placeholder="搜索学生姓名"
+                  style="width: 220px"
+                  @keyup.enter="handleExitSearch"
+                />
+                <el-select v-model="exitSearch.status" clearable placeholder="状态" style="width: 140px">
+                  <el-option label="待审核" :value="0" />
+                  <el-option label="已通过" :value="1" />
+                  <el-option label="已驳回" :value="2" />
+                </el-select>
+                <el-button @click="handleExitSearch">查询</el-button>
               </div>
             </template>
 
@@ -247,7 +253,7 @@
               <el-table-column prop="reason" label="退组原因" min-width="220" show-overflow-tooltip />
               <el-table-column label="状态" min-width="100">
                 <template #default="{ row }">
-                  <el-tag :type="getExitStatusType(row.status)">{{ getExitStatusText(row.status) }}</el-tag>
+                  <StatusTag :value="row.status" :label-map="exitStatusLabels" :type-map="exitStatusTypes" />
                 </template>
               </el-table-column>
               <el-table-column label="审核备注" min-width="220">
@@ -272,7 +278,7 @@
               </el-table-column>
             </el-table>
 
-            <div class="pagination-row">
+            <template #pagination>
               <el-pagination
                 background
                 layout="prev, pager, next, total"
@@ -281,8 +287,8 @@
                 :total="exitPagination.total"
                 @current-change="fetchExitApplications"
               />
-            </div>
-          </el-card>
+            </template>
+          </TablePageCard>
         </el-tab-pane>
       </el-tabs>
     </template>
@@ -332,6 +338,8 @@ import {
   updateSpaceFolder,
   uploadSpaceFile
 } from '@/api/labSpace'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { useUserStore } from '@/stores/user'
 import { downloadCsv } from '@/utils/export'
 
@@ -393,6 +401,33 @@ const attendanceStatusOptions = [
   { label: '补签', value: 5 },
   { label: '免考勤', value: 6 }
 ]
+const attendanceStatusLabels = Object.fromEntries(attendanceStatusOptions.map((item) => [item.value, item.label]))
+const attendanceStatusTypes = {
+  1: 'success',
+  2: 'warning',
+  3: 'warning',
+  4: 'danger',
+  5: 'success',
+  6: 'success'
+}
+const archiveFlagLabels = {
+  0: '未归档',
+  1: '已归档'
+}
+const archiveFlagTypes = {
+  0: 'info',
+  1: 'success'
+}
+const exitStatusLabels = {
+  0: '待审核',
+  1: '已通过',
+  2: '已驳回'
+}
+const exitStatusTypes = {
+  0: 'warning',
+  1: 'success',
+  2: 'danger'
+}
 
 const scopeTitle = computed(() => {
   if (isTeacherPortal.value) {
@@ -738,28 +773,9 @@ const reloadWorkspace = async () => {
   await loadFiles()
 }
 
-const getExitStatusText = (status) => {
-  if (status === 1) return '已通过'
-  if (status === 2) return '已驳回'
-  return '待审核'
-}
-
-const getExitStatusType = (status) => {
-  if (status === 1) return 'success'
-  if (status === 2) return 'danger'
-  return 'warning'
-}
-
 const attendanceStatusText = (status) => {
   const option = attendanceStatusOptions.find((item) => item.value === status)
   return option?.label || '未登记'
-}
-
-const attendanceStatusType = (status) => {
-  if (status === 1 || status === 5 || status === 6) return 'success'
-  if (status === 2 || status === 3) return 'warning'
-  if (status === 4) return 'danger'
-  return 'info'
 }
 
 const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
@@ -836,12 +852,6 @@ onMounted(async () => {
   justify-content: space-between;
   width: 100%;
   gap: 12px;
-}
-
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
 }
 
 .done-text {

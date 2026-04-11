@@ -1,19 +1,25 @@
 package com.lab.recruitment.service.impl;
 
+import com.lab.recruitment.config.PlatformCacheNames;
 import com.lab.recruitment.entity.User;
 import com.lab.recruitment.service.StatisticsService;
 import com.lab.recruitment.support.CurrentUserAccessor;
+import com.lab.recruitment.support.DataScope;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 @Service
 public class StatisticsServiceImpl implements StatisticsService {
@@ -45,9 +51,649 @@ public class StatisticsServiceImpl implements StatisticsService {
                 ? labId
                 : currentUserAccessor.resolveLabScope(currentUser, labId);
         if (scopedLabId == null) {
-            throw new RuntimeException("Lab id is required");
+            throw new RuntimeException("实验室 ID 不能为空");
         }
         return buildLabOverview(scopedLabId);
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = PlatformCacheNames.STAT_DASHBOARD,
+            key = "#currentUser.id + ':' + (#startDate == null ? '' : #startDate.toString()) + ':' + (#endDate == null ? '' : #endDate.toString()) + ':' + (#collegeId == null ? 'all' : #collegeId) + ':' + (#labId == null ? 'all' : #labId)",
+            condition = "#currentUser != null && #currentUser.id != null"
+    )
+    public Map<String, Object> getDashboard(User currentUser, LocalDate startDate, LocalDate endDate,
+                                            Long collegeId, Long labId) {
+        StatisticsScope scope = resolveStatisticsScope(currentUser, collegeId, labId);
+        DateWindow window = resolveDateWindow(startDate, endDate);
+        Map<String, Object> attendance = getAttendanceDimension(currentUser, window.startDate, window.endDate, collegeId, labId);
+        Map<String, Object> profiles = getProfileDimension(currentUser, window.startDate, window.endDate, collegeId, labId);
+        Map<String, Object> devices = getDeviceDimension(currentUser, window.startDate, window.endDate, collegeId, labId);
+
+        Map<String, Object> summary = new LinkedHashMap<>();
+        summary.put("labCount", countScopedLabs(scope));
+        summary.put("memberCount", countScopedMembers(scope));
+        summary.put("deviceCount", devices.get("totalDevices"));
+        summary.put("fileCount", countScopedFiles(scope));
+        summary.put("attendanceRate", attendance.get("attendanceRate"));
+        summary.put("leaveRate", attendance.get("leaveRate"));
+        summary.put("profileApprovedRate", profiles.get("approvedRate"));
+        summary.put("pendingProfileCount", profiles.get("pendingCount"));
+
+        Map<String, Object> pending = new LinkedHashMap<>();
+        pending.put("pendingLeaves", countPendingLeaves(scope, window));
+        pending.put("pendingProfiles", numberValue(profiles.get("pendingCount")));
+        pending.put("pendingMaintenance", countPendingMaintenance(scope, window));
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("scopeType", scope.scopeType);
+        result.put("scopeName", scope.scopeName);
+        result.put("collegeId", scope.collegeId);
+        result.put("labId", scope.labId);
+        result.put("startDate", window.startDate);
+        result.put("endDate", window.endDate);
+        result.put("summary", summary);
+        result.put("pending", pending);
+        return result;
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = PlatformCacheNames.STAT_LABS,
+            key = "#currentUser.id + ':' + (#startDate == null ? '' : #startDate.toString()) + ':' + (#endDate == null ? '' : #endDate.toString()) + ':' + (#collegeId == null ? 'all' : #collegeId) + ':' + (#labId == null ? 'all' : #labId)",
+            condition = "#currentUser != null && #currentUser.id != null"
+    )
+    public List<Map<String, Object>> getLabDimension(User currentUser, LocalDate startDate, LocalDate endDate,
+                                                     Long collegeId, Long labId) {
+        StatisticsScope scope = resolveStatisticsScope(currentUser, collegeId, labId);
+        List<Map<String, Object>> groups = new ArrayList<>();
+        groups.add(buildGroup("topLabs", scope.scopeType.equals("lab") ? "当前实验室" : "热门实验室", queryTopLabs(scope)));
+        groups.add(buildGroup(
+                "orgDistribution",
+                scope.scopeType.equals("school") ? "学院分布" : "实验室分布",
+                queryLabDistribution(scope)
+        ));
+        return groups;
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = PlatformCacheNames.STAT_MEMBERS,
+            key = "#currentUser.id + ':' + (#startDate == null ? '' : #startDate.toString()) + ':' + (#endDate == null ? '' : #endDate.toString()) + ':' + (#collegeId == null ? 'all' : #collegeId) + ':' + (#labId == null ? 'all' : #labId)",
+            condition = "#currentUser != null && #currentUser.id != null"
+    )
+    public List<Map<String, Object>> getMemberDimension(User currentUser, LocalDate startDate, LocalDate endDate,
+                                                        Long collegeId, Long labId) {
+        StatisticsScope scope = resolveStatisticsScope(currentUser, collegeId, labId);
+        List<Map<String, Object>> groups = new ArrayList<>();
+        groups.add(buildGroup("memberRoles", "成员角色分布", queryMemberRoles(scope)));
+        groups.add(buildGroup("majorDistribution", "专业分布", queryMajorDistribution(scope)));
+        groups.add(buildGroup(
+                "memberOrgDistribution",
+                scope.scopeType.equals("school") ? "学院成员分布" : "实验室成员分布",
+                queryMemberOrgDistribution(scope)
+        ));
+        return groups;
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = PlatformCacheNames.STAT_ATTENDANCE,
+            key = "#currentUser.id + ':' + (#startDate == null ? '' : #startDate.toString()) + ':' + (#endDate == null ? '' : #endDate.toString()) + ':' + (#collegeId == null ? 'all' : #collegeId) + ':' + (#labId == null ? 'all' : #labId)",
+            condition = "#currentUser != null && #currentUser.id != null"
+    )
+    public Map<String, Object> getAttendanceDimension(User currentUser, LocalDate startDate, LocalDate endDate,
+                                                      Long collegeId, Long labId) {
+        StatisticsScope scope = resolveStatisticsScope(currentUser, collegeId, labId);
+        DateWindow window = resolveDateWindow(startDate, endDate);
+        Map<String, Long> counter = queryAttendanceStatusCounter(scope, window);
+        long total = 0L;
+        for (Long value : counter.values()) {
+            total += value == null ? 0L : value;
+        }
+        long normal = counter.getOrDefault("normal", 0L);
+        long late = counter.getOrDefault("late", 0L);
+        long leave = counter.getOrDefault("leave", 0L);
+        long absent = counter.getOrDefault("absent", 0L);
+        long supplementApproved = counter.getOrDefault("makeup_approved", 0L);
+        long supplementPending = counter.getOrDefault("makeup_pending", 0L);
+        long supplementRejected = counter.getOrDefault("makeup_rejected", 0L);
+
+        double attendanceRate = total <= 0 ? 100D : round((normal + late + supplementApproved) * 100.0D / total);
+        double leaveRate = total <= 0 ? 0D : round(leave * 100.0D / total);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("startDate", window.startDate);
+        result.put("endDate", window.endDate);
+        result.put("totalRecords", total);
+        result.put("attendanceRate", attendanceRate);
+        result.put("leaveRate", leaveRate);
+        result.put("statusDistribution", toNamedRows(counter, attendanceStatusLabelMap()));
+        result.put("monthlyTrend", queryAttendanceMonthlyTrend(scope, window));
+        result.put("summary", new LinkedHashMap<String, Object>() {{
+            put("normal", normal);
+            put("late", late);
+            put("leave", leave);
+            put("absent", absent);
+            put("supplementApproved", supplementApproved);
+            put("supplementPending", supplementPending);
+            put("supplementRejected", supplementRejected);
+        }});
+        return result;
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = PlatformCacheNames.STAT_DEVICES,
+            key = "#currentUser.id + ':' + (#startDate == null ? '' : #startDate.toString()) + ':' + (#endDate == null ? '' : #endDate.toString()) + ':' + (#collegeId == null ? 'all' : #collegeId) + ':' + (#labId == null ? 'all' : #labId)",
+            condition = "#currentUser != null && #currentUser.id != null"
+    )
+    public Map<String, Object> getDeviceDimension(User currentUser, LocalDate startDate, LocalDate endDate,
+                                                  Long collegeId, Long labId) {
+        StatisticsScope scope = resolveStatisticsScope(currentUser, collegeId, labId);
+        DateWindow window = resolveDateWindow(startDate, endDate);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalDevices", countScopedDevices(scope));
+        result.put("statusDistribution", queryDeviceStatusDistribution(scope));
+        result.put("categoryDistribution", queryDeviceCategoryDistribution(scope));
+        result.put("maintenanceDistribution", queryMaintenanceDistribution(scope, window));
+        return result;
+    }
+
+    @Override
+    @Cacheable(
+            cacheNames = PlatformCacheNames.STAT_PROFILES,
+            key = "#currentUser.id + ':' + (#startDate == null ? '' : #startDate.toString()) + ':' + (#endDate == null ? '' : #endDate.toString()) + ':' + (#collegeId == null ? 'all' : #collegeId) + ':' + (#labId == null ? 'all' : #labId)",
+            condition = "#currentUser != null && #currentUser.id != null"
+    )
+    public Map<String, Object> getProfileDimension(User currentUser, LocalDate startDate, LocalDate endDate,
+                                                   Long collegeId, Long labId) {
+        StatisticsScope scope = resolveStatisticsScope(currentUser, collegeId, labId);
+        long totalProfiles = countScopedProfiles(scope);
+        long pendingCount = countScopedProfilesByStatus(scope, "PENDING");
+        long approvedCount = countScopedProfilesByStatus(scope, "APPROVED") + countScopedProfilesByStatus(scope, "ARCHIVED");
+        double approvedRate = totalProfiles <= 0 ? 0D : round(approvedCount * 100.0D / totalProfiles);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("totalProfiles", totalProfiles);
+        result.put("pendingCount", pendingCount);
+        result.put("approvedRate", approvedRate);
+        result.put("statusDistribution", queryProfileStatusDistribution(scope));
+        result.put("directionDistribution", queryProfileDirectionDistribution(scope));
+        result.put("orgDistribution", queryProfileOrgDistribution(scope));
+        return result;
+    }
+
+    private StatisticsScope resolveStatisticsScope(User currentUser, Long requestedCollegeId, Long requestedLabId) {
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new RuntimeException("当前用户不存在");
+        }
+
+        if (currentUserAccessor.isSuperAdmin(currentUser)) {
+            if (requestedLabId != null) {
+                Long collegeId = requestedCollegeId != null
+                        ? requestedCollegeId
+                        : currentUserAccessor.resolveCollegeIdByLabId(requestedLabId);
+                return new StatisticsScope("lab", resolveLabName(requestedLabId), collegeId, requestedLabId);
+            }
+            if (requestedCollegeId != null) {
+                return new StatisticsScope("college", resolveCollegeName(requestedCollegeId), requestedCollegeId, null);
+            }
+            return new StatisticsScope("school", "学校", null, null);
+        }
+
+        Long managedCollegeId = currentUserAccessor.resolveManagedCollegeId(currentUser);
+        if (managedCollegeId != null) {
+            DataScope scoped = currentUserAccessor.resolveManagementScope(currentUser, requestedCollegeId, requestedLabId);
+            if (scoped.getLabId() != null) {
+                return new StatisticsScope("lab", resolveLabName(scoped.getLabId()), scoped.getCollegeId(), scoped.getLabId());
+            }
+            return new StatisticsScope("college", resolveCollegeName(scoped.getCollegeId()), scoped.getCollegeId(), null);
+        }
+
+        Long targetLabId = requestedLabId;
+        if (targetLabId == null) {
+            DataScope baseScope = currentUserAccessor.buildDataScope(currentUser);
+            targetLabId = baseScope.getLabId();
+        }
+        if (targetLabId == null) {
+            targetLabId = currentUser.getLabId();
+        }
+        if (targetLabId == null) {
+            throw new RuntimeException("当前账号未绑定可统计的数据范围");
+        }
+
+        Long scopedLabId = currentUserAccessor.resolveLabScope(currentUser, targetLabId);
+        Long scopedCollegeId = currentUserAccessor.resolveCollegeIdByLabId(scopedLabId);
+        if (requestedCollegeId != null && !Objects.equals(requestedCollegeId, scopedCollegeId)) {
+            throw new RuntimeException("No access to another college");
+        }
+        return new StatisticsScope("lab", resolveLabName(scopedLabId), scopedCollegeId, scopedLabId);
+    }
+
+    private DateWindow resolveDateWindow(LocalDate startDate, LocalDate endDate) {
+        LocalDate today = LocalDate.now();
+        LocalDate resolvedEnd = endDate == null ? today : endDate;
+        LocalDate resolvedStart = startDate == null ? resolvedEnd.minusDays(29) : startDate;
+        if (resolvedEnd.isBefore(resolvedStart)) {
+            throw new RuntimeException("结束日期不能早于开始日期");
+        }
+        return new DateWindow(resolvedStart, resolvedEnd);
+    }
+
+    private Map<String, Object> buildGroup(String key, String title, List<Map<String, Object>> data) {
+        Map<String, Object> group = new LinkedHashMap<>();
+        group.put("key", key);
+        group.put("title", title);
+        group.put("data", data == null ? new ArrayList<>() : data);
+        return group;
+    }
+
+    private long numberValue(Object value) {
+        return value instanceof Number ? ((Number) value).longValue() : 0L;
+    }
+
+    private Map<String, String> attendanceStatusLabelMap() {
+        Map<String, String> labels = new LinkedHashMap<>();
+        labels.put("normal", "正常");
+        labels.put("late", "迟到");
+        labels.put("leave", "请假");
+        labels.put("absent", "缺勤");
+        labels.put("makeup_approved", "补签通过");
+        labels.put("makeup_pending", "补签待审");
+        labels.put("makeup_rejected", "补签驳回");
+        return labels;
+    }
+
+    private List<Map<String, Object>> toNamedRows(Map<String, Long> counter, Map<String, String> labels) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (Map.Entry<String, String> entry : labels.entrySet()) {
+            rows.add(statItem(entry.getValue(), counter.getOrDefault(entry.getKey(), 0L)));
+        }
+        for (Map.Entry<String, Long> entry : counter.entrySet()) {
+            if (!labels.containsKey(entry.getKey())) {
+                rows.add(statItem(entry.getKey(), entry.getValue()));
+            }
+        }
+        return rows;
+    }
+
+    private void appendScopeCondition(StringBuilder where, List<Object> args, StatisticsScope scope,
+                                      String labColumn, String collegeColumn) {
+        if (scope == null) {
+            return;
+        }
+        if (scope.labId != null && labColumn != null) {
+            where.append(" AND ").append(labColumn).append(" = ?");
+            args.add(scope.labId);
+            return;
+        }
+        if (scope.collegeId != null && collegeColumn != null) {
+            where.append(" AND ").append(collegeColumn).append(" = ?");
+            args.add(scope.collegeId);
+        }
+    }
+
+    private long countScopedLabs(StatisticsScope scope) {
+        if (scope.labId != null) {
+            return count("SELECT COUNT(*) FROM t_lab WHERE deleted = 0 AND id = ?", scope.labId);
+        }
+        if (scope.collegeId != null) {
+            return count("SELECT COUNT(*) FROM t_lab WHERE deleted = 0 AND college_id = ?", scope.collegeId);
+        }
+        return count("SELECT COUNT(*) FROM t_lab WHERE deleted = 0");
+    }
+
+    private long countScopedMembers(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE m.deleted = 0 AND m.status = 'active'");
+        appendScopeCondition(where, args, scope, "m.lab_id", "l.college_id");
+        Long value = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM t_lab_member m LEFT JOIN t_lab l ON l.id = m.lab_id AND l.deleted = 0" + where,
+                Long.class,
+                args.toArray()
+        );
+        return value == null ? 0L : value;
+    }
+
+    private long countScopedFiles(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE f.deleted = 0");
+        appendScopeCondition(where, args, scope, "f.lab_id", "l.college_id");
+        Long value = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM t_lab_space_file f LEFT JOIN t_lab l ON l.id = f.lab_id AND l.deleted = 0" + where,
+                Long.class,
+                args.toArray()
+        );
+        return value == null ? 0L : value;
+    }
+
+    private long countPendingLeaves(StatisticsScope scope, DateWindow window) {
+        List<Object> args = new ArrayList<>();
+        args.add(window.startDate);
+        args.add(window.endDate.plusDays(1));
+        StringBuilder where = new StringBuilder(
+                " WHERE al.deleted = 0 AND al.leave_status = 'PENDING' AND al.created_at >= ? AND al.created_at < ?"
+        );
+        appendScopeCondition(where, args, scope, "al.lab_id", "l.college_id");
+        Long value = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM t_attendance_leave al LEFT JOIN t_lab l ON l.id = al.lab_id AND l.deleted = 0" + where,
+                Long.class,
+                args.toArray()
+        );
+        return value == null ? 0L : value;
+    }
+
+    private long countPendingMaintenance(StatisticsScope scope, DateWindow window) {
+        List<Object> args = new ArrayList<>();
+        args.add(window.startDate.atStartOfDay());
+        args.add(window.endDate.plusDays(1).atStartOfDay());
+        StringBuilder where = new StringBuilder(
+                " WHERE m.deleted = 0 AND m.maintenance_status <> 'RESOLVED' AND m.create_time >= ? AND m.create_time < ?"
+        );
+        appendScopeCondition(where, args, scope, "m.lab_id", "l.college_id");
+        Long value = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM t_equipment_maintenance m LEFT JOIN t_lab l ON l.id = m.lab_id AND l.deleted = 0" + where,
+                Long.class,
+                args.toArray()
+        );
+        return value == null ? 0L : value;
+    }
+
+    private List<Map<String, Object>> queryTopLabs(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE l.deleted = 0");
+        appendScopeCondition(where, args, scope, "l.id", "l.college_id");
+        return jdbcTemplate.queryForList(
+                "SELECT l.lab_name AS name, COUNT(m.id) AS value " +
+                        "FROM t_lab l " +
+                        "LEFT JOIN t_lab_member m ON m.lab_id = l.id AND m.deleted = 0 AND m.status = 'active'" +
+                        where +
+                        " GROUP BY l.id, l.lab_name ORDER BY value DESC, name ASC LIMIT 8",
+                args.toArray()
+        );
+    }
+
+    private List<Map<String, Object>> queryLabDistribution(StatisticsScope scope) {
+        if (scope.labId != null) {
+            return jdbcTemplate.queryForList(
+                    "SELECT l.lab_name AS name, COUNT(m.id) AS value " +
+                            "FROM t_lab l " +
+                            "LEFT JOIN t_lab_member m ON m.lab_id = l.id AND m.deleted = 0 AND m.status = 'active' " +
+                            "WHERE l.deleted = 0 AND l.id = ? GROUP BY l.id, l.lab_name",
+                    scope.labId
+            );
+        }
+        if (scope.collegeId != null) {
+            return jdbcTemplate.queryForList(
+                    "SELECT l.lab_name AS name, COUNT(m.id) AS value " +
+                            "FROM t_lab l " +
+                            "LEFT JOIN t_lab_member m ON m.lab_id = l.id AND m.deleted = 0 AND m.status = 'active' " +
+                            "WHERE l.deleted = 0 AND l.college_id = ? " +
+                            "GROUP BY l.id, l.lab_name ORDER BY value DESC, name ASC LIMIT 8",
+                    scope.collegeId
+            );
+        }
+        return jdbcTemplate.queryForList(
+                "SELECT COALESCE(c.college_name, 'Unassigned') AS name, COUNT(l.id) AS value " +
+                        "FROM t_lab l " +
+                        "LEFT JOIN t_college c ON c.id = l.college_id AND c.deleted = 0 " +
+                        "WHERE l.deleted = 0 " +
+                        "GROUP BY COALESCE(c.college_name, 'Unassigned') ORDER BY value DESC, name ASC"
+        );
+    }
+
+    private List<Map<String, Object>> queryMemberRoles(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE m.deleted = 0 AND m.status = 'active'");
+        appendScopeCondition(where, args, scope, "m.lab_id", "l.college_id");
+        return jdbcTemplate.queryForList(
+                "SELECT COALESCE(m.member_role, 'unknown') AS name, COUNT(*) AS value " +
+                        "FROM t_lab_member m LEFT JOIN t_lab l ON l.id = m.lab_id AND l.deleted = 0" +
+                        where +
+                        " GROUP BY COALESCE(m.member_role, 'unknown') ORDER BY value DESC, name ASC",
+                args.toArray()
+        );
+    }
+
+    private List<Map<String, Object>> queryMajorDistribution(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE p.deleted = 0 AND p.major IS NOT NULL AND TRIM(p.major) <> ''");
+        appendScopeCondition(where, args, scope, "p.lab_id", "p.college_id");
+        return jdbcTemplate.queryForList(
+                "SELECT p.major AS name, COUNT(*) AS value FROM t_student_profile p" +
+                        where +
+                        " GROUP BY p.major ORDER BY value DESC, name ASC LIMIT 8",
+                args.toArray()
+        );
+    }
+
+    private List<Map<String, Object>> queryMemberOrgDistribution(StatisticsScope scope) {
+        if (scope.labId != null) {
+            return jdbcTemplate.queryForList(
+                    "SELECT l.lab_name AS name, COUNT(m.id) AS value " +
+                            "FROM t_lab l " +
+                            "LEFT JOIN t_lab_member m ON m.lab_id = l.id AND m.deleted = 0 AND m.status = 'active' " +
+                            "WHERE l.deleted = 0 AND l.id = ? GROUP BY l.id, l.lab_name",
+                    scope.labId
+            );
+        }
+        if (scope.collegeId != null) {
+            return jdbcTemplate.queryForList(
+                    "SELECT l.lab_name AS name, COUNT(m.id) AS value " +
+                            "FROM t_lab l " +
+                            "LEFT JOIN t_lab_member m ON m.lab_id = l.id AND m.deleted = 0 AND m.status = 'active' " +
+                            "WHERE l.deleted = 0 AND l.college_id = ? " +
+                            "GROUP BY l.id, l.lab_name ORDER BY value DESC, name ASC LIMIT 8",
+                    scope.collegeId
+            );
+        }
+        return jdbcTemplate.queryForList(
+                "SELECT COALESCE(c.college_name, 'Unassigned') AS name, COUNT(m.id) AS value " +
+                        "FROM t_lab_member m " +
+                        "LEFT JOIN t_lab l ON l.id = m.lab_id AND l.deleted = 0 " +
+                        "LEFT JOIN t_college c ON c.id = l.college_id AND c.deleted = 0 " +
+                        "WHERE m.deleted = 0 AND m.status = 'active' " +
+                        "GROUP BY COALESCE(c.college_name, 'Unassigned') ORDER BY value DESC, name ASC"
+        );
+    }
+
+    private Map<String, Long> queryAttendanceStatusCounter(StatisticsScope scope, DateWindow window) {
+        List<Object> args = new ArrayList<>();
+        args.add(window.startDate);
+        args.add(window.endDate);
+        StringBuilder where = new StringBuilder(" WHERE r.deleted = 0 AND s.deleted = 0 AND s.session_date BETWEEN ? AND ?");
+        appendScopeCondition(where, args, scope, "r.lab_id", "l.college_id");
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT LOWER(r.sign_status) AS statusName, COUNT(*) AS value " +
+                        "FROM t_attendance_record r " +
+                        "INNER JOIN t_attendance_session s ON s.id = r.session_id " +
+                        "LEFT JOIN t_lab l ON l.id = r.lab_id AND l.deleted = 0" +
+                        where +
+                        " GROUP BY LOWER(r.sign_status)",
+                args.toArray()
+        );
+
+        Map<String, Long> result = new LinkedHashMap<>();
+        for (Map<String, Object> row : rows) {
+            String key = row.get("statusName") == null
+                    ? "unknown"
+                    : String.valueOf(row.get("statusName")).trim().toLowerCase(Locale.ROOT);
+            result.put(key, numberValue(row.get("value")));
+        }
+        return result;
+    }
+
+    private List<Map<String, Object>> queryAttendanceMonthlyTrend(StatisticsScope scope, DateWindow window) {
+        List<Object> args = new ArrayList<>();
+        args.add(window.startDate);
+        args.add(window.endDate);
+        StringBuilder where = new StringBuilder(" WHERE r.deleted = 0 AND s.deleted = 0 AND s.session_date BETWEEN ? AND ?");
+        appendScopeCondition(where, args, scope, "r.lab_id", "l.college_id");
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT DATE_FORMAT(s.session_date, '%Y-%m') AS name, " +
+                        "ROUND(CASE WHEN COUNT(*) = 0 THEN 0 ELSE " +
+                        "SUM(CASE WHEN LOWER(r.sign_status) IN ('normal', 'late', 'makeup_approved') THEN 1 ELSE 0 END) * 100.0 / COUNT(*) END, 2) AS value " +
+                        "FROM t_attendance_record r " +
+                        "INNER JOIN t_attendance_session s ON s.id = r.session_id " +
+                        "LEFT JOIN t_lab l ON l.id = r.lab_id AND l.deleted = 0" +
+                        where +
+                        " GROUP BY DATE_FORMAT(s.session_date, '%Y-%m') ORDER BY name ASC",
+                args.toArray()
+        );
+        return completeMonthlyTrend(rows, window.startDate, window.endDate);
+    }
+
+    private long countScopedDevices(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE e.deleted = 0");
+        appendScopeCondition(where, args, scope, "e.lab_id", "l.college_id");
+        Long value = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM t_equipment e LEFT JOIN t_lab l ON l.id = e.lab_id AND l.deleted = 0" + where,
+                Long.class,
+                args.toArray()
+        );
+        return value == null ? 0L : value;
+    }
+
+    private List<Map<String, Object>> queryDeviceStatusDistribution(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE e.deleted = 0");
+        appendScopeCondition(where, args, scope, "e.lab_id", "l.college_id");
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT e.status AS statusCode, COUNT(*) AS value " +
+                        "FROM t_equipment e LEFT JOIN t_lab l ON l.id = e.lab_id AND l.deleted = 0" +
+                        where +
+                        " GROUP BY e.status ORDER BY e.status ASC",
+                args.toArray()
+        );
+        Map<Integer, String> labels = new LinkedHashMap<>();
+        labels.put(0, "Idle");
+        labels.put(1, "Borrowed");
+        labels.put(2, "Maintaining");
+        labels.put(3, "Scrapped");
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Map.Entry<Integer, String> entry : labels.entrySet()) {
+            long value = 0L;
+            for (Map<String, Object> row : rows) {
+                Integer statusCode = row.get("statusCode") instanceof Number ? ((Number) row.get("statusCode")).intValue() : null;
+                if (Objects.equals(statusCode, entry.getKey())) {
+                    value = numberValue(row.get("value"));
+                    break;
+                }
+            }
+            result.add(statItem(entry.getValue(), value));
+        }
+        return result;
+    }
+
+    private List<Map<String, Object>> queryDeviceCategoryDistribution(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE e.deleted = 0");
+        appendScopeCondition(where, args, scope, "e.lab_id", "l.college_id");
+        return jdbcTemplate.queryForList(
+                "SELECT COALESCE(c.name, e.type, 'Uncategorized') AS name, COUNT(*) AS value " +
+                        "FROM t_equipment e " +
+                        "LEFT JOIN t_lab l ON l.id = e.lab_id AND l.deleted = 0 " +
+                        "LEFT JOIN t_equipment_category c ON c.id = e.category_id AND c.deleted = 0" +
+                        where +
+                        " GROUP BY COALESCE(c.name, e.type, 'Uncategorized') ORDER BY value DESC, name ASC LIMIT 8",
+                args.toArray()
+        );
+    }
+
+    private List<Map<String, Object>> queryMaintenanceDistribution(StatisticsScope scope, DateWindow window) {
+        List<Object> args = new ArrayList<>();
+        args.add(window.startDate.atStartOfDay());
+        args.add(window.endDate.plusDays(1).atStartOfDay());
+        StringBuilder where = new StringBuilder(" WHERE m.deleted = 0 AND m.create_time >= ? AND m.create_time < ?");
+        appendScopeCondition(where, args, scope, "m.lab_id", "l.college_id");
+        return jdbcTemplate.queryForList(
+                "SELECT COALESCE(m.maintenance_status, 'PENDING') AS name, COUNT(*) AS value " +
+                        "FROM t_equipment_maintenance m " +
+                        "LEFT JOIN t_lab l ON l.id = m.lab_id AND l.deleted = 0" +
+                        where +
+                        " GROUP BY COALESCE(m.maintenance_status, 'PENDING') ORDER BY value DESC, name ASC",
+                args.toArray()
+        );
+    }
+
+    private long countScopedProfiles(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE p.deleted = 0");
+        appendScopeCondition(where, args, scope, "p.lab_id", "p.college_id");
+        Long value = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM t_student_profile p" + where,
+                Long.class,
+                args.toArray()
+        );
+        return value == null ? 0L : value;
+    }
+
+    private long countScopedProfilesByStatus(StatisticsScope scope, String status) {
+        List<Object> args = new ArrayList<>();
+        args.add(status);
+        StringBuilder where = new StringBuilder(" WHERE p.deleted = 0 AND p.status = ?");
+        appendScopeCondition(where, args, scope, "p.lab_id", "p.college_id");
+        Long value = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM t_student_profile p" + where,
+                Long.class,
+                args.toArray()
+        );
+        return value == null ? 0L : value;
+    }
+
+    private List<Map<String, Object>> queryProfileStatusDistribution(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE p.deleted = 0");
+        appendScopeCondition(where, args, scope, "p.lab_id", "p.college_id");
+        return jdbcTemplate.queryForList(
+                "SELECT COALESCE(p.status, 'UNKNOWN') AS name, COUNT(*) AS value " +
+                        "FROM t_student_profile p" +
+                        where +
+                        " GROUP BY COALESCE(p.status, 'UNKNOWN') ORDER BY value DESC, name ASC",
+                args.toArray()
+        );
+    }
+
+    private List<Map<String, Object>> queryProfileDirectionDistribution(StatisticsScope scope) {
+        List<Object> args = new ArrayList<>();
+        StringBuilder where = new StringBuilder(" WHERE p.deleted = 0 AND p.direction IS NOT NULL AND TRIM(p.direction) <> ''");
+        appendScopeCondition(where, args, scope, "p.lab_id", "p.college_id");
+        return jdbcTemplate.queryForList(
+                "SELECT p.direction AS name, COUNT(*) AS value " +
+                        "FROM t_student_profile p" +
+                        where +
+                        " GROUP BY p.direction ORDER BY value DESC, name ASC LIMIT 8",
+                args.toArray()
+        );
+    }
+
+    private List<Map<String, Object>> queryProfileOrgDistribution(StatisticsScope scope) {
+        if (scope.labId != null) {
+            return jdbcTemplate.queryForList(
+                    "SELECT l.lab_name AS name, COUNT(p.id) AS value " +
+                            "FROM t_lab l LEFT JOIN t_student_profile p ON p.lab_id = l.id AND p.deleted = 0 " +
+                            "WHERE l.deleted = 0 AND l.id = ? GROUP BY l.id, l.lab_name",
+                    scope.labId
+            );
+        }
+        if (scope.collegeId != null) {
+            return jdbcTemplate.queryForList(
+                    "SELECT l.lab_name AS name, COUNT(p.id) AS value " +
+                            "FROM t_lab l LEFT JOIN t_student_profile p ON p.lab_id = l.id AND p.deleted = 0 " +
+                            "WHERE l.deleted = 0 AND l.college_id = ? " +
+                            "GROUP BY l.id, l.lab_name ORDER BY value DESC, name ASC LIMIT 8",
+                    scope.collegeId
+            );
+        }
+        return jdbcTemplate.queryForList(
+                "SELECT COALESCE(c.college_name, 'Unassigned') AS name, COUNT(p.id) AS value " +
+                        "FROM t_student_profile p " +
+                        "LEFT JOIN t_college c ON c.id = p.college_id AND c.deleted = 0 " +
+                        "WHERE p.deleted = 0 " +
+                        "GROUP BY COALESCE(c.college_name, 'Unassigned') ORDER BY value DESC, name ASC"
+        );
     }
 
     private Map<String, Object> buildSchoolOverview() {
@@ -557,7 +1203,52 @@ public class StatisticsServiceImpl implements StatisticsService {
         return result;
     }
 
+    private List<Map<String, Object>> completeMonthlyTrend(List<Map<String, Object>> rawRecords,
+                                                           LocalDate startDate,
+                                                           LocalDate endDate) {
+        Map<String, Object> valueMap = new HashMap<>();
+        for (Map<String, Object> rawRecord : rawRecords) {
+            valueMap.put(String.valueOf(rawRecord.get("name")), rawRecord.get("value"));
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        YearMonth current = YearMonth.from(startDate);
+        YearMonth endMonth = YearMonth.from(endDate);
+        while (!current.isAfter(endMonth)) {
+            String month = current.format(YEAR_MONTH_FORMATTER);
+            result.add(statItem(month, valueMap.getOrDefault(month, 0)));
+            current = current.plusMonths(1);
+        }
+        return result;
+    }
+
     private double round(double value) {
         return Math.round(value * 100D) / 100D;
+    }
+
+    private static final class DateWindow {
+
+        private final LocalDate startDate;
+        private final LocalDate endDate;
+
+        private DateWindow(LocalDate startDate, LocalDate endDate) {
+            this.startDate = startDate;
+            this.endDate = endDate;
+        }
+    }
+
+    private static final class StatisticsScope {
+
+        private final String scopeType;
+        private final String scopeName;
+        private final Long collegeId;
+        private final Long labId;
+
+        private StatisticsScope(String scopeType, String scopeName, Long collegeId, Long labId) {
+            this.scopeType = scopeType;
+            this.scopeName = scopeName;
+            this.collegeId = collegeId;
+            this.labId = labId;
+        }
     }
 }

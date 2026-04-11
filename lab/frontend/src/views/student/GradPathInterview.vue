@@ -18,13 +18,7 @@
 
     <section class="interview-grid">
       <div class="control-column">
-        <el-card class="config-card" shadow="never">
-          <template #header>
-            <div class="section-head">
-              <span>面试配置</span>
-              <el-tag :type="phaseTagType" effect="plain">{{ phaseText }}</el-tag>
-            </div>
-          </template>
+        <TablePageCard class="config-card" title="面试配置" subtitle="会话参数" :count-label="phaseText" :count-tag-type="phaseTagType || 'info'">
 
           <el-form label-position="top">
             <el-form-item label="目标岗位">
@@ -89,15 +83,9 @@
               </div>
             </div>
           </div>
-        </el-card>
+        </TablePageCard>
 
-        <el-card class="tips-card" shadow="never">
-          <template #header>
-            <div class="section-head">
-              <span>使用建议</span>
-              <el-tag type="success" effect="plain">语音模式</el-tag>
-            </div>
-          </template>
+        <TablePageCard class="tips-card" title="使用建议" subtitle="语音模式" count-label="语音模式" count-tag-type="success">
 
           <div class="tips-list">
             <div class="tip-item">
@@ -113,16 +101,10 @@
               <p>如果只是代码过关，但解释不清楚方案取舍，真实面试里仍然容易失分。</p>
             </div>
           </div>
-        </el-card>
+        </TablePageCard>
       </div>
 
-      <el-card class="dialog-card" shadow="never">
-        <template #header>
-          <div class="section-head">
-            <span>面试对话</span>
-            <el-tag effect="plain" type="info">{{ currentTrack.name }}</el-tag>
-          </div>
-        </template>
+      <TablePageCard class="dialog-card" title="面试对话" subtitle="GradPath 会话" :count-label="currentTrack.name" count-tag-type="info">
 
         <el-alert
           v-if="errorMessage"
@@ -166,7 +148,7 @@
           </div>
           <p>{{ summaryText || '结束面试后，GradPath 会返回一段总结与评价。' }}</p>
         </div>
-      </el-card>
+      </TablePageCard>
     </section>
   </div>
 </template>
@@ -178,6 +160,7 @@ import 'recorder-core/src/engine/wav'
 import { ElMessage } from 'element-plus'
 import { useRoute, useRouter } from 'vue-router'
 import GradPathNav from '@/components/GradPathNav.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { getGradPathConfig } from '@/api/gradPath'
 import { defaultTrackId, getTrackById, gradPathTracks } from '@/constants/gradPath'
 
@@ -651,13 +634,6 @@ ensureConfig().catch(() => {
   background:
     radial-gradient(circle at top right, rgba(14, 165, 233, 0.1), transparent 24%),
     linear-gradient(180deg, #ffffff, #f8fbff);
-}
-
-.section-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  align-items: center;
 }
 
 .config-actions {

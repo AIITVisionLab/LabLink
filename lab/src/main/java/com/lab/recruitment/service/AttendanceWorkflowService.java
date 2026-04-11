@@ -6,6 +6,8 @@ import com.lab.recruitment.dto.AttendanceScheduleDTO;
 import com.lab.recruitment.dto.AttendanceSignInDTO;
 import com.lab.recruitment.dto.AttendanceTaskUpsertDTO;
 import com.lab.recruitment.dto.AttendanceMakeupRequestDTO;
+import com.lab.recruitment.dto.AttendanceLeaveApplyDTO;
+import com.lab.recruitment.dto.AttendanceLeaveReviewDTO;
 import com.lab.recruitment.entity.AttendanceSchedule;
 import com.lab.recruitment.entity.User;
 import org.springframework.web.multipart.MultipartFile;
@@ -42,7 +44,16 @@ public interface AttendanceWorkflowService {
 
     boolean studentSignIn(AttendanceSignInDTO signInDTO, User currentUser);
 
+    Map<String, Object> studentApplyLeave(AttendanceLeaveApplyDTO leaveDTO, User currentUser);
+
     boolean studentRequestMakeup(AttendanceMakeupRequestDTO requestDTO, User currentUser);
 
     Page<Map<String, Object>> getStudentHistory(Integer pageNum, Integer pageSize, User currentUser);
+
+    Page<Map<String, Object>> getPendingLeavePage(Integer pageNum, Integer pageSize, Long labId,
+                                                  String leaveStatus, String keyword, User currentUser);
+
+    Map<String, Object> approveLeave(Long leaveId, AttendanceLeaveReviewDTO reviewDTO, User currentUser);
+
+    Map<String, Object> rejectLeave(Long leaveId, AttendanceLeaveReviewDTO reviewDTO, User currentUser);
 }

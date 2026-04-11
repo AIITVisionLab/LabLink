@@ -29,6 +29,9 @@ public interface LabApplyMapper extends BaseMapper<LabApply> {
             "<if test='labId != null'>",
             "  AND a.lab_id = #{labId}",
             "</if>",
+            "<if test='collegeId != null'>",
+            "  AND l.college_id = #{collegeId}",
+            "</if>",
             "<if test='status != null and status != \"\"'>",
             "  AND a.status = #{status}",
             "</if>",
@@ -45,6 +48,7 @@ public interface LabApplyMapper extends BaseMapper<LabApply> {
     })
     Page<Map<String, Object>> selectApplyPage(Page<Map<String, Object>> page,
                                               @Param("labId") Long labId,
+                                              @Param("collegeId") Long collegeId,
                                               @Param("status") String status,
                                               @Param("studentUserId") Long studentUserId,
                                               @Param("keyword") String keyword);

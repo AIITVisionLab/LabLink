@@ -1,21 +1,23 @@
 <template>
-  <div class="equipment-apply">
-    <el-card>
-      <div class="search-bar">
-        <el-form :inline="true" :model="searchForm">
+  <div class="page-shell equipment-apply">
+    <TablePageCard title="设备借用申请" subtitle="实验室设备查询与借用" :count-label="`${pagination.total} 台`">
+      <template #filters>
+        <SearchToolbar
+          v-model="searchForm.name"
+          keyword-label="设备名称"
+          placeholder="请输入设备名称"
+          search-text="搜索"
+          reset-text="重置"
+          @search="handleSearch"
+          @reset="resetSearch"
+        >
           <el-form-item label="实验室">
-            <el-select v-model="searchForm.labId" placeholder="选择实验室" @change="fetchEquipment">
+            <el-select v-model="searchForm.labId" placeholder="选择实验室" @change="handleLabChange">
               <el-option v-for="lab in labs" :key="lab.id" :label="lab.labName" :value="lab.id" />
             </el-select>
           </el-form-item>
-          <el-form-item label="设备名称">
-            <el-input v-model="searchForm.name" placeholder="请输入设备名称" />
-          </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="fetchEquipment">搜索</el-button>
-          </el-form-item>
-        </el-form>
-      </div>
+        </SearchToolbar>
+      </template>
 
       <el-table :data="equipmentList" border stripe>
         <el-table-column prop="name" label="设备名称" />
@@ -33,9 +35,7 @@
         <el-table-column prop="description" label="描述" />
         <el-table-column prop="status" label="状态" width="100">
           <template #default="scope">
-            <el-tag :type="getStatusType(scope.row.status)">
-              {{ getStatusText(scope.row.status) }}
-            </el-tag>
+            <StatusTag :value="scope.row.status" :label-map="equipmentStatusLabels" :type-map="equipmentStatusTypes" />
           </template>
         </el-table-column>
         <el-table-column label="操作" width="120">
@@ -52,7 +52,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination">
+      <template #pagination>
         <el-pagination
           v-model:current-page="pagination.current"
           v-model:page-size="pagination.size"
@@ -60,10 +60,9 @@
           layout="total, prev, pager, next"
           @current-change="fetchEquipment"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
 
-    <!-- 申请对话框 -->
     <el-dialog v-model="dialog.visible" title="借用申请" width="30%">
       <el-form ref="formRef" :model="form" label-width="80px" :rules="rules">
         <el-form-item label="设备名称">
@@ -88,11 +87,24 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getEquipmentList, borrowEquipment } from '@/api/equipment'
 import { getAllLabs } from '@/api/lab'
+import SearchToolbar from '@/components/common/SearchToolbar.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 
 const searchForm = reactive({
   labId: '',
   name: ''
 })
+const equipmentStatusLabels = {
+  0: '空闲',
+  1: '借用中',
+  2: '维修中'
+}
+const equipmentStatusTypes = {
+  0: 'success',
+  1: 'warning',
+  2: 'danger'
+}
 
 const labs = ref([])
 const equipmentList = ref([])
@@ -129,6 +141,22 @@ const fetchEquipment = async () => {
   }
 }
 
+const handleLabChange = () => {
+  pagination.current = 1
+  fetchEquipment()
+}
+
+const handleSearch = () => {
+  pagination.current = 1
+  fetchEquipment()
+}
+
+const resetSearch = () => {
+  searchForm.name = ''
+  pagination.current = 1
+  fetchEquipment()
+}
+
 const showApplyDialog = (row) => {
   dialog.visible = true
   dialog.equipmentName = row.name
@@ -152,16 +180,10 @@ const submitApply = async () => {
   })
 }
 
-const getStatusType = (status) => {
-  return status === 0 ? 'success' : status === 1 ? 'warning' : 'danger'
-}
-const getStatusText = (status) => {
-  return status === 0 ? '空闲' : status === 1 ? '借用中' : '维修中'
-}
 </script>
 
 <style scoped>
-.equipment-apply { padding: 20px; }
-.search-bar { margin-bottom: 20px; }
-.pagination { margin-top: 20px; text-align: right; }
+.equipment-apply :deep(.el-image) {
+  border-radius: 10px;
+}
 </style>

@@ -9,10 +9,9 @@
       title="当前页面仅展示投递过本实验室的学生，且只能查看本实验室的投递记录。"
     />
 
-    <el-card>
-      <template #header>
+    <TablePageCard :title="pageTitle" subtitle="学生目录" :count-label="`${pagination.total} 条`">
+      <template #header-extra>
         <div class="card-header">
-          <span>{{ pageTitle }}</span>
           <el-button type="primary" @click="fetchStudents">
             <el-icon><Refresh /></el-icon>
             刷新
@@ -20,7 +19,8 @@
         </div>
       </template>
 
-      <div class="search-area">
+      <template #filters>
+        <div class="search-area">
         <el-form :model="searchForm" inline>
           <el-form-item label="学生姓名">
             <el-input
@@ -51,7 +51,8 @@
             <el-button @click="resetSearch">重置</el-button>
           </el-form-item>
         </el-form>
-      </div>
+        </div>
+      </template>
 
       <el-table v-loading="loading" :data="students" stripe>
         <el-table-column prop="realName" label="姓名" width="110" />
@@ -89,7 +90,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination">
+      <template #pagination>
         <el-pagination
           v-model:current-page="pagination.current"
           v-model:page-size="pagination.size"
@@ -99,8 +100,8 @@
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
 
     <el-dialog
       v-model="showDetailDialog"
@@ -138,9 +139,9 @@
               <el-tag size="small" type="danger">已拒绝: {{ selectedStudent.rejectedCount || 0 }}</el-tag>
             </div>
           </el-descriptions-item>
-          <el-descriptions-item label="Resume">
+          <el-descriptions-item label="个人简历">
             <el-link v-if="selectedStudent.resume" :href="resolveFileUrl(selectedStudent.resume)" target="_blank" type="primary">
-              Open resume
+              打开简历
             </el-link>
             <span v-else>-</span>
           </el-descriptions-item>
@@ -167,9 +168,11 @@
           <el-table-column prop="reason" label="申请理由" min-width="220" show-overflow-tooltip />
           <el-table-column label="状态" width="120">
             <template #default="{ row }">
-              <el-tag :type="getStatusType(row.displayStatus ?? row.status)">
-                {{ getStatusText(row.displayStatus ?? row.status) }}
-              </el-tag>
+              <StatusTag
+                :value="row.displayStatus ?? row.status"
+                :label-map="deliveryStatusLabels"
+                :type-map="deliveryStatusTypes"
+              />
             </template>
           </el-table-column>
           <el-table-column prop="comment" label="审核意见" min-width="180" show-overflow-tooltip />
@@ -217,6 +220,8 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import request from '@/utils/request'
 import { getUserInfo } from '@/utils/auth'
 import { resolveFileUrl } from '@/utils/file'
@@ -245,7 +250,9 @@ function normalizeDelivery(record) {
 export default {
   name: 'AdminStudents',
   components: {
-    Refresh
+    Refresh,
+    StatusTag,
+    TablePageCard
   },
   setup() {
     const router = useRouter()
@@ -276,6 +283,30 @@ export default {
       size: 10,
       total: 0
     })
+
+    const deliveryStatusLabels = {
+      0: '待审核',
+      1: '待确认 offer',
+      2: '已拒绝',
+      3: '已加入',
+      4: '审核通过',
+      5: 'offer 已关闭',
+      PENDING: '待审核',
+      APPROVED: '已通过',
+      REJECTED: '已拒绝'
+    }
+
+    const deliveryStatusTypes = {
+      0: 'warning',
+      1: 'success',
+      2: 'danger',
+      3: 'success',
+      4: 'info',
+      5: 'info',
+      PENDING: 'warning',
+      APPROVED: 'success',
+      REJECTED: 'danger'
+    }
 
     const isLabAdmin = computed(() => currentUser.value?.role === 'admin')
     const canDeleteStudents = computed(() => currentUser.value?.role === 'super_admin')
@@ -481,6 +512,8 @@ export default {
       isLabAdmin,
       canDeleteStudents,
       pageTitle,
+      deliveryStatusLabels,
+      deliveryStatusTypes,
       fetchStudents,
       handleSearch,
       resetSearch,

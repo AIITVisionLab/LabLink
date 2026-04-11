@@ -1,74 +1,54 @@
-<template>
+﻿<template>
   <div class="m-page">
-    <section v-if="lab" class="hero">
-      <p class="hero-code">{{ lab.labCode || `#${lab.id}` }}</p>
-      <h1 class="hero-title">{{ lab.labName }}</h1>
-      <p class="hero-desc">{{ lab.labDesc || '暂无简介' }}</p>
-      <div class="hero-meta">
-        <span class="meta-chip">
-          <el-icon :size="16"><User /></el-icon>
-          <span>{{ lab.teacherName || '指导教师待维护' }}</span>
-        </span>
-        <span v-if="lab.location" class="meta-chip">
-          <el-icon :size="16"><Location /></el-icon>
-          <span>{{ lab.location }}</span>
-        </span>
+    <section v-if="lab" class="hero-card">
+      <p class="eyebrow">Lab Detail</p>
+      <h1>{{ lab.labName }}</h1>
+      <p>{{ lab.labDesc || '暂无实验室简介' }}</p>
+      <div class="meta-row">
+        <span>{{ lab.teacherName || '指导教师待完善' }}</span>
+        <span>{{ lab.location || '位置待完善' }}</span>
       </div>
-      <div class="hero-actions">
-        <el-button
-          type="primary"
-          size="large"
-          style="width: 100%"
-          :disabled="Boolean(userStore.userInfo?.labId)"
-          @click="openApply"
-        >
-          {{ userStore.userInfo?.labId ? '已加入实验室' : '申请加入' }}
-        </el-button>
-      </div>
+      <el-button type="primary" size="large" :disabled="Boolean(userStore.userInfo?.labId)" @click="openApplyDialog">
+        {{ userStore.userInfo?.labId ? '已加入实验室' : '申请加入' }}
+      </el-button>
     </section>
 
-    <section v-if="lab" class="panel">
-      <header class="panel-header">
-        <h2>实验室介绍</h2>
-      </header>
-      <div class="panel-body">{{ lab.basicInfo || '暂无详细介绍' }}</div>
+    <section v-if="lab" class="panel-card">
+      <header class="panel-head"><h2>基础信息</h2></header>
+      <div class="content-text">{{ lab.basicInfo || '暂无基础信息' }}</div>
     </section>
 
-    <section v-if="lab" class="panel">
-      <header class="panel-header">
-        <h2>所需技能</h2>
-      </header>
-      <div class="tags">
-        <el-tag v-for="item in skillList" :key="item" effect="plain" class="tag">{{ item }}</el-tag>
-        <span v-if="!skillList.length" class="muted">暂未明确技能要求</span>
+    <section v-if="lab" class="panel-card">
+      <header class="panel-head"><h2>招新要求</h2></header>
+      <div v-if="skillList.length" class="tag-list">
+        <span v-for="item in skillList" :key="item" class="skill-tag">{{ item }}</span>
       </div>
+      <el-empty v-else description="暂未设置招新要求" :image-size="72" />
     </section>
 
-    <section v-if="lab" class="panel">
-      <header class="panel-header">
-        <h2>荣誉展示</h2>
-      </header>
-      <div class="panel-body">{{ lab.awards || '暂无荣誉展示' }}</div>
+    <section v-if="lab" class="panel-card">
+      <header class="panel-head"><h2>成果与荣誉</h2></header>
+      <div class="content-text">{{ lab.awards || '暂无成果展示' }}</div>
     </section>
 
     <el-skeleton v-if="loading" animated :rows="6" />
-    <el-empty v-else-if="!lab" description="未找到实验室详情" :image-size="90" />
+    <el-empty v-else-if="!lab" description="未找到实验室详情" :image-size="88" />
 
-    <el-dialog v-model="applyVisible" title="申请加入实验室" width="92%">
-      <el-form ref="applyFormRef" :model="applyForm" :rules="applyRules" label-position="top">
+    <el-dialog v-model="dialogVisible" title="申请加入实验室" width="92%">
+      <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item label="申请理由" prop="applyReason">
-          <el-input v-model="applyForm.applyReason" type="textarea" :rows="3" placeholder="简单说明你为什么想加入" />
+          <el-input v-model="form.applyReason" type="textarea" :rows="3" placeholder="简要说明你为什么希望加入该实验室" />
         </el-form-item>
-        <el-form-item label="研究兴趣（可选）" prop="researchInterest">
-          <el-input v-model="applyForm.researchInterest" placeholder="例如：前端 / 算法 / 嵌入式 / AI..." />
+        <el-form-item label="研究兴趣">
+          <el-input v-model="form.researchInterest" placeholder="例如：前端 / 算法 / 嵌入式 / AI" />
         </el-form-item>
-        <el-form-item label="技能概述（可选）" prop="skillSummary">
-          <el-input v-model="applyForm.skillSummary" type="textarea" :rows="3" placeholder="你掌握的技能与项目经历" />
+        <el-form-item label="技能概述">
+          <el-input v-model="form.skillSummary" type="textarea" :rows="3" placeholder="可以填写项目经历或技能栈" />
         </el-form-item>
       </el-form>
       <template #footer>
         <div class="dialog-actions">
-          <el-button @click="applyVisible = false">取消</el-button>
+          <el-button @click="dialogVisible = false">取消</el-button>
           <el-button type="primary" :loading="submitting" @click="submitApply">提交申请</el-button>
         </div>
       </template>
@@ -77,76 +57,86 @@
 </template>
 
 <script setup>
-import { Location, User } from '@element-plus/icons-vue'
-import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
-import { useRoute } from 'vue-router'
-import { getLabById } from '@/api/lab'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import { createLabApply } from '@/api/labApplies'
+import { getLabById } from '@/api/lab'
 import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
+const router = useRouter()
 const userStore = useUserStore()
-
-const lab = ref(null)
 const loading = ref(false)
-
-const applyVisible = ref(false)
+const lab = ref(null)
+const dialogVisible = ref(false)
 const submitting = ref(false)
-const applyFormRef = ref()
+const formRef = ref()
 
-const applyForm = reactive({
+const form = reactive({
   applyReason: '',
   researchInterest: '',
   skillSummary: ''
 })
 
-const applyRules = reactive({
+const rules = {
   applyReason: [{ required: true, message: '请输入申请理由', trigger: 'blur' }]
-})
+}
 
 const skillList = computed(() => {
-  if (!lab.value?.requireSkill) return []
+  if (!lab.value?.requireSkill) {
+    return []
+  }
   return String(lab.value.requireSkill)
-    .split(/[，,、\s]+/)
+    .split(/[，,、\s/]+/)
     .map((item) => item.trim())
     .filter(Boolean)
 })
 
-const fetchDetail = async () => {
+const loadDetail = async () => {
   loading.value = true
   try {
-    const id = route.params.id
-    const res = await getLabById(id)
-    lab.value = res.data || null
+    const response = await getLabById(route.params.id)
+    lab.value = response.data || null
   } finally {
     loading.value = false
   }
 }
 
-const openApply = () => {
+const openApplyDialog = () => {
   if (userStore.userInfo?.labId) {
-    ElMessage.warning('你已加入实验室，不能重复申请')
+    ElMessage.warning('你已经加入实验室，不能重复申请')
     return
   }
-  applyVisible.value = true
+  if (!userStore.userInfo?.resume) {
+    ElMessage.warning('请先到个人资料页上传简历后再申请实验室')
+    router.push('/m/student/profile')
+    return
+  }
+  dialogVisible.value = true
 }
 
 const submitApply = async () => {
-  if (!lab.value?.id) return
-  await applyFormRef.value?.validate?.()
+  if (!formRef.value) {
+    return
+  }
+  try {
+    await formRef.value.validate()
+  } catch {
+    return
+  }
   submitting.value = true
   try {
     await createLabApply({
       labId: lab.value.id,
-      applyReason: applyForm.applyReason.trim(),
-      researchInterest: applyForm.researchInterest?.trim() || undefined,
-      skillSummary: applyForm.skillSummary?.trim() || undefined
+      applyReason: form.applyReason.trim(),
+      researchInterest: form.researchInterest || undefined,
+      skillSummary: form.skillSummary || undefined
     })
-    applyVisible.value = false
-    applyForm.applyReason = ''
-    applyForm.researchInterest = ''
-    applyForm.skillSummary = ''
+    form.applyReason = ''
+    form.researchInterest = ''
+    form.skillSummary = ''
+    dialogVisible.value = false
     ElMessage.success('申请已提交，请等待审核')
   } finally {
     submitting.value = false
@@ -154,103 +144,91 @@ const submitApply = async () => {
 }
 
 onMounted(() => {
-  fetchDetail()
+  loadDetail()
 })
 </script>
 
 <style scoped>
 .m-page {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  gap: 14px;
+}
+
+.hero-card,
+.panel-card {
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid rgba(226, 232, 240, 0.92);
+}
+
+.hero-card {
+  padding: 18px;
+  background: linear-gradient(145deg, rgba(15, 23, 42, 0.94), rgba(29, 78, 216, 0.88));
+  color: #f8fafc;
+  display: grid;
   gap: 12px;
 }
 
-.hero {
-  border-radius: 18px;
-  padding: 16px;
-  background: linear-gradient(135deg, #0f172a 0%, #1e40af 100%);
-  color: #ffffff;
+.eyebrow {
+  margin: 0;
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.82;
 }
 
-.hero-code {
-  font-size: 12px;
-  opacity: 0.85;
-  margin-bottom: 6px;
+.hero-card h1 {
+  margin: 0;
+  font-size: 24px;
 }
 
-.hero-title {
-  font-size: 20px;
-  line-height: 1.2;
-  margin-bottom: 8px;
-}
-
-.hero-desc {
-  font-size: 13px;
-  opacity: 0.85;
+.hero-card p,
+.meta-row {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.92);
   line-height: 1.6;
-  margin-bottom: 12px;
 }
 
-.hero-meta {
+.meta-row {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 14px;
-}
-
-.meta-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.92);
+  justify-content: space-between;
+  gap: 12px;
   font-size: 12px;
 }
 
-.panel {
-  border-radius: 18px;
+.panel-card {
   padding: 14px;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(226, 232, 240, 0.9);
 }
 
-.panel-header {
-  margin-bottom: 8px;
-}
-
-.panel-header h2 {
-  font-size: 15px;
+.panel-head h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
   color: #0f172a;
 }
 
-.panel-body {
+.content-text {
   color: #334155;
-  font-size: 14px;
   line-height: 1.8;
   white-space: pre-wrap;
 }
 
-.tags {
+.tag-list {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.tag {
+.skill-tag {
+  padding: 8px 12px;
   border-radius: 999px;
-}
-
-.muted {
-  color: #94a3b8;
-  font-size: 13px;
+  background: rgba(219, 234, 254, 0.92);
+  color: #1d4ed8;
+  font-weight: 700;
 }
 
 .dialog-actions {
   display: flex;
-  gap: 10px;
   justify-content: flex-end;
+  gap: 10px;
 }
 </style>

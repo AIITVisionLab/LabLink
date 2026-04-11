@@ -30,7 +30,7 @@
       </el-form>
     </section>
 
-    <el-card shadow="never" class="panel-card">
+    <TablePageCard title="实验室创建申请" subtitle="教师视角" :count-label="`${pagination.total} 条`">
       <el-table v-loading="loading" :data="records" stripe>
         <el-table-column prop="collegeName" label="所属学院" min-width="150" />
         <el-table-column prop="labName" label="实验室名称" min-width="180" />
@@ -38,7 +38,7 @@
         <el-table-column prop="researchDirection" label="研究方向" min-width="220" show-overflow-tooltip />
         <el-table-column label="流程状态" min-width="120">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+            <StatusTag :value="row.status" preset="apply" />
           </template>
         </el-table-column>
         <el-table-column label="学院审核" min-width="220">
@@ -62,7 +62,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-row">
+      <template #pagination>
         <el-pagination
           background
           layout="prev, pager, next, total"
@@ -71,8 +71,8 @@
           :total="pagination.total"
           @current-change="handlePageChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
 
     <el-dialog v-model="dialogVisible" title="发起实验室创建申请" width="760px">
       <el-form label-width="96px" class="dialog-form">
@@ -120,6 +120,8 @@
 import dayjs from 'dayjs'
 import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { getCollegeOptions } from '@/api/colleges'
 import { createLabCreateApply, getLabCreateApplyPage } from '@/api/labCreateApplies'
 import { useUserStore } from '@/stores/user'
@@ -286,12 +288,6 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 16px;
-}
-
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
 }
 
 .audit-cell {

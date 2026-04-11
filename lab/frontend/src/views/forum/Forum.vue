@@ -1,71 +1,86 @@
 <template>
   <div class="forum-page">
-    <div class="forum-header">
-      <div class="header-left">
-        <h2><el-icon><ChatLineSquare /></el-icon> 交流论坛</h2>
-        <el-tabs v-model="activeTab" class="forum-tabs" @tab-change="handleTabChange">
-          <el-tab-pane label="全部帖子" name="all" />
-          <el-tab-pane label="精华区" name="essence" />
-        </el-tabs>
-      </div>
-      <div class="header-right">
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索帖子"
-          class="search-input"
-          clearable
-          @keyup.enter="fetchPosts"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
-        <el-button type="primary" @click="showCreateDialog">
-          <el-icon><Plus /></el-icon>
-          发布帖子
-        </el-button>
-      </div>
-    </div>
-
-    <div v-loading="loading" class="post-list">
-      <el-card v-for="post in posts" :key="post.id" class="post-card" shadow="hover" @click="goToDetail(post.id)">
-        <div class="post-main">
-          <div class="post-title-row">
-            <el-tag v-if="post.isPinned" type="danger" size="small" effect="dark">置顶</el-tag>
-            <el-tag v-if="post.isEssence" type="warning" size="small" effect="dark">精华</el-tag>
-            <h3 class="post-title">{{ post.title }}</h3>
-          </div>
-          <p class="post-preview">{{ getPreview(post.content) }}</p>
-          <div class="post-meta">
-            <span class="author">
-              <el-avatar :size="20" :src="post.author?.avatar">
-                {{ (post.author?.realName || 'U').charAt(0) }}
-              </el-avatar>
-              {{ post.author?.realName || '匿名用户' }}
-            </span>
-            <span class="time">{{ formatTime(post.createTime) }}</span>
-            <span class="stats">
-              <el-icon><View /></el-icon> {{ post.viewCount }}
-              <el-icon><ChatDotRound /></el-icon> {{ post.commentCount }}
-              <el-icon :class="{ liked: post.isLiked }"><Star /></el-icon> {{ post.likeCount }}
-            </span>
-          </div>
+    <TablePageCard title="交流论坛" subtitle="全部帖子与精选讨论" :count-label="`${total} 篇帖子`">
+      <template #header-extra>
+        <div class="forum-header-actions">
+          <el-button @click="fetchPosts">
+            <el-icon><RefreshRight /></el-icon>
+            刷新
+          </el-button>
+          <el-button type="primary" @click="showCreateDialog">
+            <el-icon><Plus /></el-icon>
+            发布帖子
+          </el-button>
         </div>
-      </el-card>
-      <el-empty v-if="posts.length === 0" description="暂无帖子" />
-    </div>
+      </template>
 
-    <div class="pagination">
-      <el-pagination
-        v-model:current-page="pageNum"
-        v-model:page-size="pageSize"
-        :total="total"
-        layout="prev, pager, next"
-        @current-change="fetchPosts"
-      />
-    </div>
+      <template #filters>
+        <div class="forum-toolbar">
+          <el-tabs v-model="activeTab" class="forum-tabs" @tab-change="handleTabChange">
+            <el-tab-pane label="全部帖子" name="all" />
+            <el-tab-pane label="精选内容" name="essence" />
+          </el-tabs>
 
-    <el-dialog v-model="createDialogVisible" title="发布新帖" width="600px">
+          <SearchToolbar
+            v-model="searchKeyword"
+            keyword-label="帖子"
+            placeholder="搜索标题或内容"
+            keyword-width="240px"
+            search-text="搜索"
+            reset-text="重置"
+            @search="handleSearch"
+            @reset="resetFilters"
+          >
+            <template #actions>
+              <span class="forum-toolbar__hint">
+                <el-icon><Search /></el-icon>
+                可按标题关键词或正文内容搜索
+              </span>
+            </template>
+          </SearchToolbar>
+        </div>
+      </template>
+
+      <div v-loading="loading" class="post-list">
+        <el-card v-for="post in posts" :key="post.id" class="post-card" shadow="hover" @click="goToDetail(post.id)">
+          <div class="post-main">
+            <div class="post-title-row">
+              <el-tag v-if="post.isPinned" type="danger" size="small" effect="dark">置顶</el-tag>
+              <el-tag v-if="post.isEssence" type="warning" size="small" effect="dark">精选</el-tag>
+              <h3 class="post-title">{{ post.title }}</h3>
+            </div>
+            <p class="post-preview">{{ getPreview(post.content) }}</p>
+            <div class="post-meta">
+              <span class="author">
+                <el-avatar :size="20" :src="post.author?.avatar">
+                  {{ (post.author?.realName || '匿').charAt(0) }}
+                </el-avatar>
+                {{ post.author?.realName || '匿名用户' }}
+              </span>
+              <span class="time">{{ formatTime(post.createTime) }}</span>
+              <span class="stats">
+                <el-icon><View /></el-icon> {{ post.viewCount }}
+                <el-icon><ChatDotRound /></el-icon> {{ post.commentCount }}
+                <el-icon :class="{ liked: post.isLiked }"><Star /></el-icon> {{ post.likeCount }}
+              </span>
+            </div>
+          </div>
+        </el-card>
+        <el-empty v-if="posts.length === 0" description="暂无帖子" />
+      </div>
+
+      <template #pagination>
+        <el-pagination
+          v-model:current-page="pageNum"
+          v-model:page-size="pageSize"
+          :total="total"
+          layout="prev, pager, next"
+          @current-change="fetchPosts"
+        />
+      </template>
+    </TablePageCard>
+
+    <el-dialog v-model="createDialogVisible" title="发布帖子" width="600px">
       <el-form :model="postForm" label-width="80px">
         <el-form-item label="标题">
           <el-input v-model="postForm.title" placeholder="请输入帖子标题" />
@@ -93,7 +108,9 @@
 import { computed, reactive, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { ChatLineSquare, Search, Plus, View, ChatDotRound, Star } from '@element-plus/icons-vue'
+import { Plus, Search, View, ChatDotRound, Star, RefreshRight } from '@element-plus/icons-vue'
+import SearchToolbar from '@/components/common/SearchToolbar.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import request from '@/utils/request'
 
 const route = useRoute()
@@ -142,6 +159,18 @@ const handleTabChange = () => {
   fetchPosts()
 }
 
+const handleSearch = () => {
+  pageNum.value = 1
+  fetchPosts()
+}
+
+const resetFilters = () => {
+  searchKeyword.value = ''
+  activeTab.value = 'all'
+  pageNum.value = 1
+  fetchPosts()
+}
+
 const showCreateDialog = () => {
   postForm.title = ''
   postForm.content = ''
@@ -158,14 +187,14 @@ const handleCreatePost = async () => {
   try {
     const res = await request.post('/api/forum/post/add', postForm)
     if (res.code === 200) {
-      ElMessage.success('发布成功')
+      ElMessage.success('帖子已发布')
       createDialogVisible.value = false
       fetchPosts()
     } else {
-      ElMessage.error(res.message || '发布失败')
+      ElMessage.error(res.message || '发布帖子失败')
     }
   } catch (error) {
-    ElMessage.error(error.message || '发布失败')
+    ElMessage.error(error.message || '发布帖子失败')
   } finally {
     submitting.value = false
   }
@@ -198,35 +227,31 @@ onMounted(fetchPosts)
   margin: 0 auto;
 }
 
-.forum-header {
+.forum-header-actions {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  margin-bottom: 20px;
-  border-bottom: 1px solid #eee;
-  padding-bottom: 10px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.header-left h2 {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 15px 0;
-  color: #303133;
+.forum-toolbar {
+  display: grid;
+  gap: 8px;
 }
 
 .forum-tabs {
-  margin-bottom: -15px;
+  margin-bottom: 0;
 }
 
-.header-right {
-  display: flex;
-  gap: 15px;
-  margin-bottom: 10px;
+.forum-tabs :deep(.el-tabs__header) {
+  margin-bottom: 0;
 }
 
-.search-input {
-  width: 200px;
+.forum-toolbar__hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .post-list {
@@ -293,11 +318,5 @@ onMounted(fetchPosts)
 
 .liked {
   color: #e6a23c;
-}
-
-.pagination {
-  margin-top: 30px;
-  display: flex;
-  justify-content: center;
 }
 </style>

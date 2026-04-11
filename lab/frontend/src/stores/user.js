@@ -8,10 +8,29 @@ import {
 } from '@/utils/auth'
 import { resolvePortalRole } from '@/utils/portal'
 
+const USER_MENUS_KEY = 'lab_user_menus'
+const USER_PERMISSIONS_KEY = 'lab_user_permissions'
+
+function readJsonArray(key) {
+  const raw = localStorage.getItem(key)
+  if (!raw) {
+    return []
+  }
+
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed : []
+  } catch (error) {
+    return []
+  }
+}
+
 export const useUserStore = defineStore('user', {
   state: () => ({
     userInfo: getUserInfo(),
-    token: getToken()
+    token: getToken(),
+    menus: readJsonArray(USER_MENUS_KEY),
+    permissions: readJsonArray(USER_PERMISSIONS_KEY)
   }),
 
   getters: {
@@ -19,7 +38,8 @@ export const useUserStore = defineStore('user', {
     userRole: (state) => state.userInfo?.role,
     userPortalRole: (state) => resolvePortalRole(state.userInfo),
     userName: (state) => state.userInfo?.username,
-    realName: (state) => state.userInfo?.realName
+    realName: (state) => state.userInfo?.realName,
+    hasPermission: (state) => (permission) => state.permissions.includes(permission)
   },
 
   actions: {
@@ -46,6 +66,18 @@ export const useUserStore = defineStore('user', {
       setAuthUserInfo(mergedUserInfo)
     },
 
+    setMenus(menus) {
+      const nextMenus = Array.isArray(menus) ? menus : []
+      this.menus = nextMenus
+      localStorage.setItem(USER_MENUS_KEY, JSON.stringify(nextMenus))
+    },
+
+    setPermissions(permissions) {
+      const nextPermissions = Array.isArray(permissions) ? permissions : []
+      this.permissions = nextPermissions
+      localStorage.setItem(USER_PERMISSIONS_KEY, JSON.stringify(nextPermissions))
+    },
+
     setToken(token) {
       this.token = token
       setAuthToken(token)
@@ -54,9 +86,13 @@ export const useUserStore = defineStore('user', {
     clearUserInfo() {
       this.userInfo = null
       this.token = null
+      this.menus = []
+      this.permissions = []
       clearAuth()
       localStorage.removeItem('userRole')
       localStorage.removeItem('userPortalRole')
+      localStorage.removeItem(USER_MENUS_KEY)
+      localStorage.removeItem(USER_PERMISSIONS_KEY)
     }
   }
 })

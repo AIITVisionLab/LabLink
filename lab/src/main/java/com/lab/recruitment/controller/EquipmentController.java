@@ -1,198 +1,246 @@
 package com.lab.recruitment.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.lab.recruitment.entity.Equipment;
 import com.lab.recruitment.entity.EquipmentBorrow;
-import com.lab.recruitment.service.AuditLogService;
-import com.lab.recruitment.service.EquipmentBorrowService;
-import com.lab.recruitment.service.EquipmentService;
+import com.lab.recruitment.entity.EquipmentCategory;
+import com.lab.recruitment.entity.EquipmentMaintenanceRecord;
+import com.lab.recruitment.entity.User;
+import com.lab.recruitment.service.EquipmentManagementService;
+import com.lab.recruitment.support.CurrentUserAccessor;
 import com.lab.recruitment.utils.Result;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/equipment")
 public class EquipmentController {
 
     @Autowired
-    private com.lab.recruitment.service.UserService userService;
-    
-    @Autowired
-    private EquipmentService equipmentService;
+    private EquipmentManagementService equipmentManagementService;
 
     @Autowired
-    private EquipmentBorrowService borrowService;
-
-    @Autowired
-    private AuditLogService auditLogService;
-
-    // --- 设备管理 ---
+    private CurrentUserAccessor currentUserAccessor;
 
     @GetMapping("/list")
-    public Result<Page<Equipment>> list(@RequestParam(defaultValue = "1") Integer pageNum,
-                                      @RequestParam(defaultValue = "10") Integer pageSize,
-                                      @RequestParam(required = false) Long labId,
-                                      @RequestParam(required = false) String name,
-                                      @RequestParam(required = false) Integer status) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        if (!"anonymousUser".equals(username)) {
-            com.lab.recruitment.entity.User user = userService.findByUsername(username);
-            if (user != null && "admin".equals(user.getRole())) {
-                labId = user.getLabId();
-            }
+    @PreAuthorize("isAuthenticated()")
+    public Result<Page<Map<String, Object>>> list(@RequestParam(defaultValue = "1") Integer pageNum,
+                                                  @RequestParam(defaultValue = "10") Integer pageSize,
+                                                  @RequestParam(required = false) Long collegeId,
+                                                  @RequestParam(required = false) Long labId,
+                                                  @RequestParam(required = false) Long categoryId,
+                                                  @RequestParam(required = false) String name,
+                                                  @RequestParam(required = false) Integer status) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.getEquipmentPage(
+                    pageNum, pageSize, collegeId, labId, categoryId, name, status, currentUser
+            ));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
         }
-        
-        Page<Equipment> page = new Page<>(pageNum, pageSize);
-        QueryWrapper<Equipment> query = new QueryWrapper<>();
-        if (labId != null) query.eq("lab_id", labId);
-        if (name != null && !name.isEmpty()) query.like("name", name);
-        if (status != null) query.eq("status", status);
-        query.orderByDesc("create_time");
-        return Result.success(equipmentService.page(page, query));
+    }
+
+    @GetMapping("/categories")
+    @PreAuthorize("isAuthenticated()")
+    public Result<List<Map<String, Object>>> listCategories(@RequestParam(required = false) Long collegeId,
+                                                            @RequestParam(required = false) Long labId) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.getCategoryOptions(collegeId, labId, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/categories")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Map<String, Object>> createCategory(@RequestBody EquipmentCategory category) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.saveCategory(category, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PutMapping("/categories/{categoryId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Map<String, Object>> updateCategory(@PathVariable Long categoryId,
+                                                      @RequestBody EquipmentCategory category) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            category.setId(categoryId);
+            return Result.success(equipmentManagementService.saveCategory(category, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/categories/{categoryId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Boolean> deleteCategory(@PathVariable Long categoryId) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            equipmentManagementService.deleteCategory(categoryId, currentUser);
+            return Result.success(Boolean.TRUE);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     @PostMapping("/add")
-    @PreAuthorize("hasRole('ADMIN')")
-    public Result<Boolean> add(@RequestBody Equipment equipment) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        com.lab.recruitment.entity.User user = userService.findByUsername(username);
-        equipment.setLabId(user.getLabId());
-        return Result.success(equipmentService.save(equipment));
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Map<String, Object>> add(@RequestBody Equipment equipment) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.saveEquipment(equipment, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     @PutMapping("/update")
-    @PreAuthorize("hasRole('ADMIN')")
-    public Result<Boolean> update(@RequestBody Equipment equipment) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        com.lab.recruitment.entity.User user = userService.findByUsername(username);
-        
-        Equipment exist = equipmentService.getById(equipment.getId());
-        if (exist == null) return Result.error("设备不存在");
-        if (!exist.getLabId().equals(user.getLabId())) return Result.error("无权操作其他实验室设备");
-        
-        return Result.success(equipmentService.updateById(equipment));
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Map<String, Object>> update(@RequestBody Equipment equipment) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.saveEquipment(equipment, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
     public Result<Boolean> delete(@PathVariable Long id) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        com.lab.recruitment.entity.User user = userService.findByUsername(username);
-        
-        Equipment exist = equipmentService.getById(id);
-        if (exist == null) return Result.error("设备不存在");
-        if (!exist.getLabId().equals(user.getLabId())) return Result.error("无权操作其他实验室设备");
-        
-        return Result.success(equipmentService.removeById(id));
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            equipmentManagementService.deleteEquipment(id, currentUser);
+            return Result.success(Boolean.TRUE);
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
-
-    // --- 借用管理 ---
 
     @PostMapping("/borrow")
     @PreAuthorize("hasRole('STUDENT')")
-    public Result<Boolean> borrow(@RequestBody EquipmentBorrow borrow) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        com.lab.recruitment.entity.User user = userService.findByUsername(username);
-        
-        if (user.getLabId() == null) {
-            return Result.error("您尚未加入任何实验室，无法借用设备");
+    public Result<Map<String, Object>> borrow(@RequestBody EquipmentBorrow borrow) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.applyBorrow(borrow, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
         }
-        
-        return Result.success(borrowService.apply(borrow.getEquipmentId(), borrow.getReason(), borrow.getExpectedReturnTime(), username));
     }
 
     @GetMapping("/borrow/list")
-    public Result<Page<EquipmentBorrow>> listBorrow(@RequestParam(defaultValue = "1") Integer pageNum,
-                                                  @RequestParam(defaultValue = "10") Integer pageSize,
-                                                  @RequestParam(required = false) Long userId,
-                                                  @RequestParam(required = false) Long equipmentId,
-                                                  @RequestParam(required = false) Long labId,
-                                                  @RequestParam(required = false) Integer status) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        if (!"anonymousUser".equals(username)) {
-            com.lab.recruitment.entity.User user = userService.findByUsername(username);
-            if (user != null && "admin".equals(user.getRole())) {
-                labId = user.getLabId();
-            }
+    @PreAuthorize("isAuthenticated()")
+    public Result<Page<Map<String, Object>>> listBorrow(@RequestParam(defaultValue = "1") Integer pageNum,
+                                                        @RequestParam(defaultValue = "10") Integer pageSize,
+                                                        @RequestParam(required = false) Long collegeId,
+                                                        @RequestParam(required = false) Long labId,
+                                                        @RequestParam(required = false) Long userId,
+                                                        @RequestParam(required = false) Long equipmentId,
+                                                        @RequestParam(required = false) String keyword,
+                                                        @RequestParam(required = false) Integer status) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.getBorrowPage(
+                    pageNum, pageSize, collegeId, labId, userId, equipmentId, keyword, status, currentUser
+            ));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
         }
-                                                      
-        Page<EquipmentBorrow> page = new Page<>(pageNum, pageSize);
-        QueryWrapper<EquipmentBorrow> query = new QueryWrapper<>();
-        if (userId != null) query.eq("user_id", userId);
-        if (equipmentId != null) query.eq("equipment_id", equipmentId);
-        if (status != null) query.eq("status", status);
-        
-        if (labId != null) {
-            // Find all equipments in this lab
-            java.util.List<Equipment> equipments = equipmentService.list(new QueryWrapper<Equipment>().eq("lab_id", labId));
-            if (equipments.isEmpty()) {
-                // If no equipment, return empty page
-                return Result.success(page);
-            }
-            java.util.List<Long> equipmentIds = equipments.stream().map(Equipment::getId).collect(java.util.stream.Collectors.toList());
-            query.in("equipment_id", equipmentIds);
-        }
-        
-        query.orderByDesc("create_time");
-        return Result.success(borrowService.page(page, query));
     }
-    
+
     @GetMapping("/borrow/my")
     @PreAuthorize("hasRole('STUDENT')")
-    public Result<Page<EquipmentBorrow>> listMyBorrow(@RequestParam(defaultValue = "1") Integer pageNum,
-                                                    @RequestParam(defaultValue = "10") Integer pageSize,
-                                                    @RequestParam(required = false) Integer status) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        com.lab.recruitment.entity.User user = userService.findByUsername(username);
-        return listBorrow(pageNum, pageSize, user.getId(), null, null, status);
+    public Result<Page<Map<String, Object>>> listMyBorrow(@RequestParam(defaultValue = "1") Integer pageNum,
+                                                          @RequestParam(defaultValue = "10") Integer pageSize,
+                                                          @RequestParam(required = false) Integer status) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.getBorrowPage(
+                    pageNum, pageSize, null, null, currentUser.getId(), null, null, status, currentUser
+            ));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 
     @PostMapping("/borrow/audit")
-    @PreAuthorize("hasRole('ADMIN')")
-    public Result<Boolean> auditBorrow(@RequestBody EquipmentBorrow borrow) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        com.lab.recruitment.entity.User user = userService.findByUsername(username);
-        
-        EquipmentBorrow exist = borrowService.getById(borrow.getId());
-        if (exist == null) return Result.error("记录不存在");
-        
-        Equipment equipment = equipmentService.getById(exist.getEquipmentId());
-        if (!equipment.getLabId().equals(user.getLabId())) return Result.error("无权操作其他实验室记录");
-        
-        boolean success = borrowService.audit(borrow.getId(), borrow.getStatus());
-        if (success) {
-            auditLogService.record(user == null ? null : user.getId(),
-                    "equipment_borrow_audit",
-                    "equipment_borrow",
-                    borrow.getId(),
-                    "status=" + borrow.getStatus());
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Map<String, Object>> auditBorrow(@RequestBody EquipmentBorrow borrow) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.auditBorrow(borrow, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
         }
-        return Result.success(success);
     }
 
     @PostMapping("/borrow/return")
-    @PreAuthorize("hasRole('ADMIN')")
-    public Result<Boolean> returnEquipment(@RequestBody EquipmentBorrow borrow) {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        com.lab.recruitment.entity.User user = userService.findByUsername(username);
-        
-        EquipmentBorrow exist = borrowService.getById(borrow.getId());
-        if (exist == null) return Result.error("记录不存在");
-        
-        Equipment equipment = equipmentService.getById(exist.getEquipmentId());
-        if (!equipment.getLabId().equals(user.getLabId())) return Result.error("无权操作其他实验室记录");
-
-        boolean success = borrowService.returnEquipment(borrow.getId());
-        if (success) {
-            auditLogService.record(user == null ? null : user.getId(),
-                    "equipment_borrow_return",
-                    "equipment_borrow",
-                    borrow.getId(),
-                    null);
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Map<String, Object>> returnEquipment(@RequestBody EquipmentBorrow borrow) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.returnBorrow(borrow.getId(), currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
         }
-        return Result.success(success);
+    }
+
+    @GetMapping("/maintenance/list")
+    @PreAuthorize("isAuthenticated()")
+    public Result<Page<Map<String, Object>>> listMaintenance(@RequestParam(defaultValue = "1") Integer pageNum,
+                                                             @RequestParam(defaultValue = "10") Integer pageSize,
+                                                             @RequestParam(required = false) Long collegeId,
+                                                             @RequestParam(required = false) Long labId,
+                                                             @RequestParam(required = false) Long equipmentId,
+                                                             @RequestParam(required = false) String keyword,
+                                                             @RequestParam(required = false) String status) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.getMaintenancePage(
+                    pageNum, pageSize, collegeId, labId, equipmentId, keyword, status, currentUser
+            ));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/maintenance")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Map<String, Object>> createMaintenance(@RequestBody EquipmentMaintenanceRecord record) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.createMaintenance(record, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
+    }
+
+    @PostMapping("/maintenance/handle")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
+    public Result<Map<String, Object>> handleMaintenance(@RequestBody EquipmentMaintenanceRecord record) {
+        try {
+            User currentUser = currentUserAccessor.getCurrentUser();
+            return Result.success(equipmentManagementService.handleMaintenance(record, currentUser));
+        } catch (Exception e) {
+            return Result.error(e.getMessage());
+        }
     }
 }

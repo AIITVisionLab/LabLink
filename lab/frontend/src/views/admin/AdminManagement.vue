@@ -1,7 +1,7 @@
 <template>
   <div class="admin-management">
-    <el-card>
-      <template #header>
+    <TablePageCard title="Admin Management" subtitle="Administrators" :count-label="`${adminList.length} items`">
+      <template #header-extra>
         <div class="card-header">
           <span>管理员管理</span>
           <el-button type="primary" @click="showAddDialog">添加管理员</el-button>
@@ -39,7 +39,7 @@
           </template>
         </el-table-column>
       </el-table>
-    </el-card>
+    </TablePageCard>
     
     <!-- 添加/编辑管理员对话框 -->
     <el-dialog 
@@ -102,6 +102,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { getAllAdmins, addAdmin, updateAdmin, deleteAdmin } from '@/api/admin'
 import { getAllLabs } from '@/api/lab'
 
@@ -268,13 +269,17 @@ onMounted(() => {
 
 <style scoped>
 .admin-management {
-  padding: 20px;
+  padding: 0;
 }
 
 .card-header {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   align-items: center;
+}
+
+.card-header span {
+  display: none;
 }
 
 .dialog-footer {

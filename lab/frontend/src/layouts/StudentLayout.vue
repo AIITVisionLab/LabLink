@@ -26,20 +26,20 @@
           </el-button>
           <div class="topbar-title">
             <p class="topbar-label">学生端</p>
-            <h2>{{ $route.meta.title || '首页' }}</h2>
+            <h2>{{ $route.meta.title || '工作台' }}</h2>
           </div>
         </div>
         <el-dropdown @command="handleCommand">
           <div class="user-chip">
             <el-avatar :size="34">{{ userInitial }}</el-avatar>
             <div>
-              <strong>{{ userStore.realName || '同学' }}</strong>
+              <strong>{{ userStore.realName || '学生' }}</strong>
               <span>{{ joinedLabLabel }}</span>
             </div>
           </div>
           <template #dropdown>
             <el-dropdown-menu>
-              <el-dropdown-item command="profile">个人信息</el-dropdown-item>
+              <el-dropdown-item command="profile">个人资料</el-dropdown-item>
               <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
             </el-dropdown-menu>
           </template>
@@ -54,13 +54,14 @@
 </template>
 
 <script setup>
-import { Bell, Calendar, DataBoard, Files, FolderOpened, User, UserFilled, Expand, Fold } from '@element-plus/icons-vue'
+import { Expand, Fold } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import request from '@/utils/request'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { useUserStore } from '@/stores/user'
+import { ensureAuthContext } from '@/utils/auth-context'
+import { resolveDesktopMenuItems } from '@/utils/portal-menu'
 
 const route = useRoute()
 const router = useRouter()
@@ -92,28 +93,30 @@ const closeSidebar = () => {
 
 const userInitial = computed(() => userStore.realName?.charAt(0) || 'S')
 const hasLabAccess = computed(() => Boolean(userStore.userInfo?.labId))
+const canApplyLab = computed(() => userStore.hasPermission('lab:apply:self'))
 
 const joinedLabLabel = computed(() =>
-  hasLabAccess.value ? `已加入实验室 #${userStore.userInfo.labId}` : '当前未加入实验室'
+  hasLabAccess.value ? `已加入实验室 #${userStore.userInfo.labId}` : '尚未加入实验室'
 )
 
-const menuItems = computed(() =>
+const fallbackMenuItems = computed(() =>
   [
-    { path: '/student/dashboard', label: '首页', icon: DataBoard },
-    { path: '/student/labs', label: '实验室总览', icon: FolderOpened },
-    { path: '/student/applications', label: '我的申请', icon: Files },
-    hasLabAccess.value ? { path: '/student/my-lab', label: '我的实验室', icon: UserFilled } : null,
-    hasLabAccess.value ? { path: '/student/attendance', label: '考勤记录', icon: Calendar } : null,
-    hasLabAccess.value ? { path: '/student/space', label: '资料空间', icon: FolderOpened } : null,
-    { path: '/student/notices', label: '公告中心', icon: Bell },
-    { path: '/student/profile', label: '个人信息', icon: User }
+    { path: '/student/dashboard', label: '工作台', icon: 'DataBoard' },
+    { path: '/student/labs', label: '实验室广场', icon: 'FolderOpened' },
+    canApplyLab.value ? { path: '/student/applications', label: '我的申请', icon: 'Tickets' } : null,
+    hasLabAccess.value ? { path: '/student/my-lab', label: '我的实验室', icon: 'UserFilled' } : null,
+    hasLabAccess.value ? { path: '/student/attendance', label: '我的考勤', icon: 'Calendar' } : null,
+    hasLabAccess.value ? { path: '/student/space', label: '资料空间', icon: 'Files' } : null,
+    { path: '/student/notifications', label: '消息中心', icon: 'Bell' },
+    { path: '/student/notices', label: '公告通知', icon: 'Bell' },
+    { path: '/student/profile', label: '个人资料', icon: 'User' }
   ].filter(Boolean)
 )
 
-const ensureProfile = async () => {
-  if (userStore.userInfo?.id) return
-  const response = await request.get('/api/access/profile')
-  userStore.setUserInfo(response.data || {})
+const menuItems = computed(() => resolveDesktopMenuItems(userStore.menus, fallbackMenuItems.value))
+
+const ensureContext = async () => {
+  await ensureAuthContext(userStore)
 }
 
 const handleCommand = async (command) => {
@@ -138,7 +141,7 @@ watch(
 onMounted(() => {
   updateViewport()
   window.addEventListener('resize', updateViewport)
-  ensureProfile()
+  ensureContext()
 })
 
 onBeforeUnmount(() => {

@@ -29,14 +29,18 @@
       </el-form>
     </section>
 
-    <el-card shadow="never" class="panel-card">
+    <TablePageCard title="招新计划" subtitle="招新周期管理" :count-label="`${pagination.total} 条`">
       <el-table v-loading="loading" :data="plans" stripe>
         <el-table-column prop="title" label="计划标题" min-width="180" />
         <el-table-column prop="labName" label="实验室" min-width="150" />
         <el-table-column prop="quota" label="名额" min-width="90" />
         <el-table-column prop="status" label="状态" min-width="110">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+            <StatusTag
+              :value="row.status"
+              :label-map="{ draft: '草稿', open: '开放中', closed: '已关闭' }"
+              :type-map="{ draft: 'info', open: 'success', closed: 'warning' }"
+            />
           </template>
         </el-table-column>
         <el-table-column label="开始时间" min-width="170">
@@ -54,7 +58,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination-row">
+      <template #pagination>
         <el-pagination
           background
           layout="prev, pager, next, total"
@@ -63,8 +67,8 @@
           :total="pagination.total"
           @current-change="handlePageChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
 
     <el-dialog v-model="dialogVisible" :title="form.id ? '编辑招新计划' : '新增招新计划'" width="700px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
@@ -120,6 +124,8 @@
 import dayjs from 'dayjs'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { getLabPage } from '@/api/lab'
 import {
   createRecruitPlan,
@@ -254,12 +260,6 @@ onMounted(async () => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 16px;
-}
-
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
 }
 
 @media (max-width: 768px) {

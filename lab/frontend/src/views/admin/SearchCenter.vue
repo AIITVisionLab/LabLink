@@ -2,275 +2,185 @@
   <div class="page-shell">
     <section class="page-hero search-hero">
       <div>
-        <p class="eyebrow">综合检索</p>
-        <h1>统一入口检索学院、实验室、学生与公告</h1>
+        <p class="eyebrow">综合搜索</p>
+        <h1>在一个入口中统一搜索实验室、成员、资料、设备、文件、公告和考勤任务</h1>
         <p class="hero-subtitle">
-          面向管理信息系统类作品，强化“快速查询、多维检索、结果聚合”的展示能力，
-          让学校管理员和学院管理员能够在一个页面里完成高频信息定位。
+          搜索结果按类型分组展示，并自动遵循学校、学院和实验室的数据权限范围。
         </p>
       </div>
       <div class="hero-side">
-        <div class="hero-chip">统一检索入口</div>
-        <div class="hero-chip muted">学院 / 实验室 / 学生 / 公告</div>
+        <div class="hero-chip">统一结果结构</div>
+        <div class="hero-chip muted">实验室 / 成员 / 资料 / 设备 / 文件 / 公告 / 考勤</div>
       </div>
     </section>
 
-    <el-card shadow="never" class="panel-card search-panel">
+    <TablePageCard class="search-panel" title="搜索条件" subtitle="综合搜索">
       <div class="search-row">
         <el-input
           v-model="keyword"
           clearable
           size="large"
-          placeholder="输入学院名、实验室名、学生姓名、学号或公告关键词"
+          placeholder="可按实验室名称、成员姓名、学号、设备编号、文件名、公告标题等搜索"
           @keyup.enter="handleSearch"
         >
           <template #prefix>
             <el-icon><Search /></el-icon>
           </template>
         </el-input>
-        <el-select v-model="searchOptions.collegeId" clearable size="large" placeholder="学院筛选">
+        <el-select v-if="isSchoolDirector" v-model="searchOptions.collegeId" clearable size="large" placeholder="学院">
           <el-option v-for="item in collegeOptions" :key="item.id" :label="item.collegeName" :value="item.id" />
         </el-select>
-        <el-select v-model="searchOptions.noticeScope" clearable size="large" placeholder="公告范围">
-          <el-option label="全范围" value="" />
-          <el-option label="全校" value="school" />
-          <el-option label="学院" value="college" />
-          <el-option label="实验室" value="lab" />
+        <el-select v-model="searchOptions.limit" size="large" placeholder="每组条数">
+          <el-option :value="6" label="前 6 条" />
+          <el-option :value="12" label="前 12 条" />
+          <el-option :value="20" label="前 20 条" />
         </el-select>
-        <el-select v-model="searchOptions.pageSize" size="large" placeholder="显示条数">
-          <el-option :value="6" label="每类 6 条" />
-          <el-option :value="12" label="每类 12 条" />
-          <el-option :value="20" label="每类 20 条" />
-        </el-select>
-        <el-button type="primary" size="large" :loading="loading" @click="handleSearch">
-          开始检索
-        </el-button>
-        <el-button size="large" :loading="exportLoading" :disabled="!keyword.trim()" @click="handleExport">
-          导出结果
-        </el-button>
-        <el-button size="large" @click="resetSearch">清空</el-button>
+        <el-button type="primary" size="large" :loading="loading" @click="handleSearch">搜索</el-button>
+        <el-button size="large" :loading="exportLoading" :disabled="!groups.length" @click="handleExport">导出</el-button>
+        <el-button size="large" @click="resetSearch">重置</el-button>
       </div>
-    </el-card>
+    </TablePageCard>
 
     <section class="metric-grid">
-      <article v-for="card in metricCards" :key="card.label" class="metric-card">
-        <span class="metric-label">{{ card.label }}</span>
-        <strong class="metric-value">{{ card.value }}</strong>
-        <span class="metric-tip">{{ card.tip }}</span>
-      </article>
+      <MetricCard v-for="card in metricCards" :key="card.label" :label="card.label" :value="card.value" :tip="card.tip" />
     </section>
 
     <section class="results-grid">
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>学院结果</span>
-            <el-tag effect="plain">{{ totals.colleges }}</el-tag>
-          </div>
-        </template>
-        <div v-if="results.colleges.length" class="result-list">
-          <article v-for="college in results.colleges" :key="college.id" class="result-item">
-            <strong>{{ college.collegeName }}</strong>
-            <p>{{ college.collegeCode || '未设置编码' }}</p>
+      <TablePageCard
+        v-for="group in groups"
+        :key="group.type"
+        :title="group.label"
+        subtitle="分类结果"
+        :count-label="group.total"
+      >
+        <div v-if="group.items?.length" class="result-list">
+          <article v-for="item in group.items" :key="`${group.type}-${item.id}`" class="result-item">
+            <div class="result-main">
+              <strong>{{ item.title }}</strong>
+              <p>{{ item.subtitle || '-' }}</p>
+            </div>
+            <div class="result-side">
+              <StatusTag :value="item.status" />
+              <router-link v-if="item.extra?.path" class="inline-link" :to="item.extra.path">打开</router-link>
+            </div>
           </article>
         </div>
-        <el-empty v-else :description="emptyDescription('学院')" />
-      </el-card>
-
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>实验室结果</span>
-            <el-tag effect="plain">{{ totals.labs }}</el-tag>
-          </div>
-        </template>
-        <div v-if="results.labs.length" class="result-list">
-          <article v-for="lab in results.labs" :key="lab.id" class="result-item">
-            <strong>{{ lab.labName }}</strong>
-            <p>{{ lab.teacherName || '待维护' }} · {{ lab.location || '未维护地点' }}</p>
-          </article>
-        </div>
-        <el-empty v-else :description="emptyDescription('实验室')" />
-      </el-card>
-
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>学生结果</span>
-            <el-tag effect="plain">{{ totals.students }}</el-tag>
-          </div>
-        </template>
-        <div v-if="results.students.length" class="result-list">
-          <article v-for="student in results.students" :key="student.id" class="result-item">
-            <strong>{{ student.realName }}</strong>
-            <p>{{ student.studentId || '无学号' }} · {{ student.major || '未填写专业' }}</p>
-          </article>
-        </div>
-        <el-empty v-else :description="emptyDescription('学生')" />
-      </el-card>
-
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>公告结果</span>
-            <el-tag effect="plain">{{ totals.notices }}</el-tag>
-          </div>
-        </template>
-        <div v-if="results.notices.length" class="result-list">
-          <article v-for="notice in results.notices" :key="notice.id" class="result-item">
-            <strong>{{ notice.title }}</strong>
-            <p>{{ notice.publishScopeLabel || notice.publishScope || '未设置范围' }}</p>
-          </article>
-        </div>
-        <el-empty v-else :description="emptyDescription('公告')" />
-      </el-card>
+        <el-empty v-else :description="emptyDescription(group.label)" />
+      </TablePageCard>
     </section>
   </div>
 </template>
 
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { getAdminStudentPage } from '@/api/admin'
-import { getCollegeOptions, getCollegePage } from '@/api/colleges'
-import { getLabPage } from '@/api/lab'
-import { getNoticePage } from '@/api/notices'
+import { computed, onMounted, reactive, ref } from 'vue'
+import MetricCard from '@/components/common/MetricCard.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
+import { getCollegeOptions } from '@/api/colleges'
+import { globalSearch } from '@/api/search'
+import { useUserStore } from '@/stores/user'
 import { downloadCsv } from '@/utils/export'
+
+const userStore = useUserStore()
 
 const keyword = ref('')
 const loading = ref(false)
 const exportLoading = ref(false)
-const hasSearched = ref(false)
 const collegeOptions = ref([])
+const searchResult = ref(null)
 
 const searchOptions = reactive({
   collegeId: null,
-  noticeScope: '',
-  pageSize: 6
+  limit: 6
 })
 
-const results = reactive({
-  colleges: [],
-  labs: [],
-  students: [],
-  notices: []
-})
-
-const totals = reactive({
-  colleges: 0,
-  labs: 0,
-  students: 0,
-  notices: 0
-})
+const isSchoolDirector = computed(() => Boolean(userStore.userInfo?.schoolDirector))
+const groups = computed(() => searchResult.value?.groups || [])
 
 const metricCards = computed(() => [
-  { label: '学院命中', value: totals.colleges, tip: '按学院名称与编码检索' },
-  { label: '实验室命中', value: totals.labs, tip: '按名称、地点与指导教师检索' },
-  { label: '学生命中', value: totals.students, tip: '按姓名、学号和专业检索' },
-  { label: '公告命中', value: totals.notices, tip: '按标题和内容关键字检索' }
+  {
+    label: '命中总数',
+    value: searchResult.value?.total || 0,
+    tip: '当前权限范围内匹配到的可见结果'
+  },
+  {
+    label: '结果分组',
+    value: groups.value.length,
+    tip: '已返回的分类数量'
+  },
+  {
+    label: '搜索关键词',
+    value: searchResult.value?.keyword || '-',
+    tip: '最近一次执行的查询词'
+  },
+  {
+    label: '数据范围',
+    value: searchResult.value?.scopeLevel || '-',
+    tip: '本次查询解析出的权限范围'
+  }
 ])
 
-const fillResults = (target, source = []) => {
-  target.splice(0, target.length, ...source)
-}
-
-const fetchSearchResults = (normalizedKeyword, pageSize) =>
-  Promise.all([
-    getCollegePage({ pageNum: 1, pageSize, keyword: normalizedKeyword }),
-    getLabPage({ pageNum: 1, pageSize, collegeId: searchOptions.collegeId, labName: normalizedKeyword }),
-    getAdminStudentPage({ pageNum: 1, pageSize, keyword: normalizedKeyword }),
-    getNoticePage({
-      pageNum: 1,
-      pageSize,
-      publishScope: searchOptions.noticeScope || undefined,
-      collegeId: searchOptions.collegeId || undefined,
-      keyword: normalizedKeyword
-    })
-  ])
-
 const loadCollegeOptions = async () => {
+  if (!isSchoolDirector.value) {
+    return
+  }
   const response = await getCollegeOptions()
   collegeOptions.value = response.data || []
-}
-
-const applySearchResults = ([collegeRes, labRes, studentRes, noticeRes]) => {
-  fillResults(results.colleges, collegeRes.data?.records || [])
-  fillResults(results.labs, labRes.data?.records || [])
-  fillResults(results.students, studentRes.data?.records || [])
-  fillResults(results.notices, noticeRes.data?.records || [])
-
-  totals.colleges = collegeRes.data?.total || 0
-  totals.labs = labRes.data?.total || 0
-  totals.students = studentRes.data?.total || 0
-  totals.notices = noticeRes.data?.total || 0
 }
 
 const handleSearch = async () => {
   const normalizedKeyword = keyword.value.trim()
   if (!normalizedKeyword) {
-    ElMessage.warning('请输入检索关键词')
+    ElMessage.warning('请先输入搜索关键词')
     return
   }
 
   loading.value = true
-  hasSearched.value = true
-
   try {
-    const responseSet = await fetchSearchResults(normalizedKeyword, searchOptions.pageSize)
-    applySearchResults(responseSet)
+    const response = await globalSearch({
+      keyword: normalizedKeyword,
+      limit: searchOptions.limit,
+      collegeId: isSchoolDirector.value ? searchOptions.collegeId || undefined : undefined
+    })
+    searchResult.value = response.data || null
   } finally {
     loading.value = false
   }
 }
 
 const handleExport = async () => {
-  const normalizedKeyword = keyword.value.trim()
-  if (!normalizedKeyword) {
-    ElMessage.warning('请输入检索关键词')
+  if (!groups.value.length) {
     return
   }
 
   exportLoading.value = true
   try {
-    const [collegeRes, labRes, studentRes, noticeRes] = await fetchSearchResults(normalizedKeyword, 50)
     const rows = [
-      ['检索关键词', normalizedKeyword],
+      ['关键词', searchResult.value?.keyword || '-'],
+      ['范围', searchResult.value?.scopeLevel || '-'],
       ['导出时间', new Date().toLocaleString()],
-      ['学院命中', collegeRes.data?.total || 0],
-      ['实验室命中', labRes.data?.total || 0],
-      ['学生命中', studentRes.data?.total || 0],
-      ['公告命中', noticeRes.data?.total || 0],
-      [],
-      ['学院结果'],
-      ['学院名称', '学院编码']
+      ['命中总数', searchResult.value?.total || 0],
+      []
     ]
 
-    for (const item of collegeRes.data?.records || []) {
-      rows.push([item.collegeName || '-', item.collegeCode || '-'])
-    }
+    groups.value.forEach((group) => {
+      rows.push([group.label, group.total])
+      rows.push(['标题', '说明', '状态', '路径'])
+      ;(group.items || []).forEach((item) => {
+        rows.push([
+          item.title || '-',
+          item.subtitle || '-',
+          item.status || '-',
+          item.extra?.path || '-'
+        ])
+      })
+      rows.push([])
+    })
 
-    rows.push([], ['实验室结果'], ['实验室名称', '指导老师', '地点'])
-    for (const item of labRes.data?.records || []) {
-      rows.push([item.labName || '-', item.teacherName || '-', item.location || '-'])
-    }
-
-    rows.push([], ['学生结果'], ['姓名', '学号', '学院', '专业'])
-    for (const item of studentRes.data?.records || []) {
-      rows.push([item.realName || '-', item.studentId || '-', item.college || '-', item.major || '-'])
-    }
-
-    rows.push([], ['公告结果'], ['标题', '发布范围', '内容摘要'])
-    for (const item of noticeRes.data?.records || []) {
-      rows.push([
-        item.title || '-',
-        item.publishScopeLabel || item.publishScope || '-',
-        item.content || '-'
-      ])
-    }
-
-    downloadCsv(`aiit-search-${normalizedKeyword}-${Date.now()}.csv`, rows)
-    ElMessage.success('检索结果已导出')
+    downloadCsv(`lablink-search-${Date.now()}.csv`, rows)
+    ElMessage.success('搜索结果已导出')
   } finally {
     exportLoading.value = false
   }
@@ -278,29 +188,15 @@ const handleExport = async () => {
 
 const resetSearch = () => {
   keyword.value = ''
-  hasSearched.value = false
   searchOptions.collegeId = null
-  searchOptions.noticeScope = ''
-  searchOptions.pageSize = 6
-  fillResults(results.colleges)
-  fillResults(results.labs)
-  fillResults(results.students)
-  fillResults(results.notices)
-  totals.colleges = 0
-  totals.labs = 0
-  totals.students = 0
-  totals.notices = 0
+  searchOptions.limit = 6
+  searchResult.value = null
 }
 
-const emptyDescription = (label) => {
-  if (!hasSearched.value) {
-    return `输入关键词后开始检索${label}`
-  }
-  return `未检索到相关${label}，可尝试更短关键词或切换筛选项`
-}
+const emptyDescription = (label) => `当前权限范围内暂无“${label}”相关结果`
 
-onMounted(async () => {
-  await loadCollegeOptions()
+onMounted(() => {
+  loadCollegeOptions()
 })
 </script>
 
@@ -335,7 +231,7 @@ onMounted(async () => {
 
 .search-row {
   display: grid;
-  grid-template-columns: minmax(260px, 1fr) repeat(6, auto);
+  grid-template-columns: minmax(280px, 1fr) repeat(4, auto);
   gap: 12px;
   align-items: center;
 }
@@ -352,17 +248,36 @@ onMounted(async () => {
 }
 
 .result-item {
-  display: grid;
-  gap: 6px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
   padding: 14px 16px;
   border-radius: 18px;
   background: linear-gradient(135deg, rgba(248, 250, 252, 0.92), rgba(240, 249, 255, 0.92));
   border: 1px solid rgba(148, 163, 184, 0.18);
 }
 
-.result-item p {
+.result-main {
+  display: grid;
+  gap: 6px;
+}
+
+.result-main p {
   margin: 0;
   color: #64748b;
+}
+
+.result-side {
+  min-width: 110px;
+  display: grid;
+  justify-items: end;
+  gap: 8px;
+}
+
+.inline-link {
+  color: #0284c7;
+  text-decoration: none;
+  font-weight: 600;
 }
 
 @media (max-width: 900px) {
@@ -377,6 +292,14 @@ onMounted(async () => {
   }
 
   .hero-side {
+    justify-items: start;
+  }
+
+  .result-item {
+    flex-direction: column;
+  }
+
+  .result-side {
     justify-items: start;
   }
 }

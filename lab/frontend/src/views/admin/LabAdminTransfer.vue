@@ -1,7 +1,7 @@
 <template>
   <div class="lab-admin-transfer">
-    <el-card>
-      <template #header>
+    <TablePageCard title="管理员权限转让" subtitle="实验室管理">
+      <template #header-extra>
         <div class="card-header">
           <span>管理员权限转让</span>
         </div>
@@ -67,7 +67,7 @@
           <el-empty v-else description="请输入关键词搜索学生" />
         </div>
       </div>
-    </el-card>
+    </TablePageCard>
   </div>
 </template>
 
@@ -75,6 +75,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import request from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 import { clearAuth } from '@/utils/auth'
@@ -173,6 +174,10 @@ onMounted(() => {
 <style scoped>
 .lab-admin-transfer {
   padding: 0;
+}
+
+.card-header span {
+  display: none;
 }
 
 .alert-box {

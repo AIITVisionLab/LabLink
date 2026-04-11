@@ -1,60 +1,52 @@
 <template>
-  <div class="page-shell">
+  <div v-loading="loading" class="page-shell teacher-dashboard">
     <section class="page-hero teacher-hero">
-      <div>
+      <div class="hero-copy">
         <p class="eyebrow">教师工作台</p>
-        <h1>教师注册已接入审批链，实验室创建申请可在线流转</h1>
+        <h1>{{ pageTitle }}</h1>
         <p class="hero-subtitle">
-          在这里可以查看自己的实验室创建申请进度、跟踪学院与学校审批状态，并获取学校和学院的最新公告。
+          在桌面端集中查看实验室动态、创建申请进度和最新公告。
         </p>
       </div>
-      <div class="hero-note-card">
-        <span>当前账号</span>
-        <strong>{{ userStore.realName || '教师' }}</strong>
-        <small>{{ userStore.userInfo?.college || '未绑定学院' }}</small>
+      <div class="hero-side">
+        <div class="hero-note-card">
+          <span>当前用户</span>
+          <strong>{{ userStore.realName || '教师' }}</strong>
+          <small>{{ scopeLabel }}</small>
+        </div>
       </div>
     </section>
 
     <section class="metric-grid">
-      <article v-for="card in summaryCards" :key="card.label" class="metric-card">
-        <span class="metric-label">{{ card.label }}</span>
-        <strong class="metric-value">{{ card.value }}</strong>
-        <span class="metric-tip">{{ card.tip }}</span>
-      </article>
+      <MetricCard v-for="card in summaryCards" :key="card.label" :label="card.label" :value="card.value" :tip="card.tip" />
     </section>
 
     <section class="content-grid two-column">
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>最近申请</span>
-            <router-link class="inline-link" to="/teacher/create-applies">查看全部</router-link>
-          </div>
+      <ChartCard title="最近创建申请" class="panel-card">
+        <template #header-extra>
+          <router-link class="inline-link" to="/teacher/create-applies">查看全部</router-link>
         </template>
 
         <div v-if="!applications.length" class="empty-panel">
-          <el-empty description="暂无实验室创建申请记录" />
+          <el-empty description="暂无创建申请" />
         </div>
         <el-table v-else :data="applications" stripe>
-          <el-table-column prop="labName" label="实验室名称" min-width="180" />
-          <el-table-column prop="collegeName" label="所属学院" min-width="140" />
-          <el-table-column label="流程状态" min-width="120">
+          <el-table-column prop="labName" label="实验室" min-width="180" />
+          <el-table-column prop="collegeName" label="学院" min-width="140" />
+          <el-table-column label="状态" min-width="120">
             <template #default="{ row }">
-              <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
+              <StatusTag :value="row.status" preset="apply" />
             </template>
           </el-table-column>
           <el-table-column label="提交时间" min-width="160">
             <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
           </el-table-column>
         </el-table>
-      </el-card>
+      </ChartCard>
 
-      <el-card shadow="never" class="panel-card">
-        <template #header>
-          <div class="panel-header">
-            <span>最新公告</span>
-            <router-link class="inline-link" to="/teacher/notices">公告中心</router-link>
-          </div>
+      <ChartCard title="最新公告" class="panel-card">
+        <template #header-extra>
+          <router-link class="inline-link" to="/teacher/notices">公告中心</router-link>
         </template>
 
         <div v-if="!notices.length" class="empty-panel">
@@ -67,7 +59,7 @@
             <span>{{ formatDateTime(notice.publishTime) }}</span>
           </article>
         </div>
-      </el-card>
+      </ChartCard>
     </section>
   </div>
 </template>
@@ -75,70 +67,92 @@
 <script setup>
 import dayjs from 'dayjs'
 import { computed, onMounted, ref } from 'vue'
+import ChartCard from '@/components/common/ChartCard.vue'
+import MetricCard from '@/components/common/MetricCard.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
 import { getLabCreateApplyPage } from '@/api/labCreateApplies'
 import { getLatestNotices } from '@/api/notices'
+import { getStatisticsDashboard } from '@/api/statistics'
 import { useUserStore } from '@/stores/user'
 
 const userStore = useUserStore()
+const loading = ref(false)
 const applications = ref([])
 const notices = ref([])
 const applyTotal = ref(0)
+const stats = ref({})
 
-const summaryCards = computed(() => [
-  {
-    label: '累计申请',
-    value: applyTotal.value,
-    tip: '教师本人已提交的实验室创建申请总数'
-  },
-  {
-    label: '待审批',
-    value: applications.value.filter((item) => item.status === 'submitted' || item.status === 'college_approved').length,
-    tip: '仍在学院或学校审批流程中的申请'
-  },
-  {
-    label: '已通过',
-    value: applications.value.filter((item) => item.status === 'approved').length,
-    tip: '已完成审批并生成实验室的申请'
-  },
-  {
-    label: '最新公告',
-    value: notices.value.length,
-    tip: '当前可见范围内最近发布的公告数量'
-  }
-])
+const scopeLabel = computed(() => stats.value.scopeName || '当前实验室')
+const pageTitle = computed(() => `${scopeLabel.value}概览`)
+
+const summaryCards = computed(() => {
+  const summary = stats.value.summary || {}
+  const pending = stats.value.pending || {}
+  return [
+    {
+      label: '成员数',
+      value: summary.memberCount ?? 0,
+      tip: '当前教师权限范围内的活跃成员'
+    },
+    {
+      label: '设备数',
+      value: summary.deviceCount ?? 0,
+      tip: '当前实验室登记在册的设备资产'
+    },
+    {
+      label: '出勤率',
+      value: formatPercent(summary.attendanceRate),
+      tip: '所选时间范围内的考勤出勤率'
+    },
+    {
+      label: '待审资料',
+      value: pending.pendingProfiles ?? 0,
+      tip: '仍在等待审核的学生资料'
+    },
+    {
+      label: '创建申请',
+      value: applyTotal.value,
+      tip: '教师提交的实验室创建申请数量'
+    },
+    {
+      label: '公告数',
+      value: notices.value.length,
+      tip: '当前范围内可见的最新公告数量'
+    }
+  ]
+})
 
 const loadDashboard = async () => {
-  const [applyRes, noticeRes] = await Promise.all([
-    getLabCreateApplyPage({ pageNum: 1, pageSize: 20 }),
-    getLatestNotices({ limit: 6 })
-  ])
+  loading.value = true
+  try {
+    const params = {
+      startDate: dayjs().subtract(29, 'day').format('YYYY-MM-DD'),
+      endDate: dayjs().format('YYYY-MM-DD')
+    }
+    const [applyRes, noticeRes, statsRes] = await Promise.all([
+      getLabCreateApplyPage({ pageNum: 1, pageSize: 20 }),
+      getLatestNotices({ limit: 6 }),
+      getStatisticsDashboard(params)
+    ])
 
-  applications.value = applyRes.data?.records || []
-  applyTotal.value = applyRes.data?.total || 0
-  notices.value = noticeRes.data || []
-}
-
-const statusLabel = (status) => {
-  const map = {
-    submitted: '待学院审核',
-    college_approved: '待学校审核',
-    approved: '已通过',
-    rejected: '已驳回'
+    applications.value = applyRes.data?.records || []
+    applyTotal.value = applyRes.data?.total || 0
+    notices.value = noticeRes.data || []
+    stats.value = statsRes.data || {}
+  } finally {
+    loading.value = false
   }
-  return map[status] || status || '-'
-}
-
-const statusTagType = (status) => {
-  const map = {
-    submitted: 'warning',
-    college_approved: 'primary',
-    approved: 'success',
-    rejected: 'danger'
-  }
-  return map[status] || 'info'
 }
 
 const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
+
+const formatPercent = (value) => {
+  const number = Number(value ?? 0)
+  if (Number.isNaN(number)) {
+    return '0%'
+  }
+  return `${Math.round(number * 100) / 100}%`
+}
 
 onMounted(() => {
   loadDashboard()
@@ -146,10 +160,29 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.teacher-dashboard {
+  background: #f8fafc;
+}
+
 .teacher-hero {
   background:
-    linear-gradient(135deg, rgba(21, 128, 61, 0.94), rgba(22, 163, 74, 0.86)),
-    radial-gradient(circle at top right, rgba(190, 242, 100, 0.22), transparent 30%);
+    radial-gradient(circle at top right, rgba(190, 242, 100, 0.18), transparent 26%),
+    linear-gradient(135deg, rgba(21, 128, 61, 0.94), rgba(22, 163, 74, 0.88));
+}
+
+.hero-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.hero-copy h1 {
+  margin: 0;
+  color: #fff;
+}
+
+.hero-subtitle {
+  max-width: 700px;
+  color: rgba(240, 253, 244, 0.92);
 }
 
 .hero-note-card {
@@ -164,6 +197,39 @@ onMounted(() => {
 
 .hero-note-card small {
   color: rgba(240, 253, 244, 0.84);
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.metric-card {
+  display: grid;
+  gap: 8px;
+  padding: 18px 20px;
+  border-radius: 18px;
+  background: #fff;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+.metric-label {
+  color: #64748b;
+  font-size: 13px;
+}
+
+.metric-value {
+  color: #0f172a;
+  font-size: 26px;
+}
+
+.metric-tip {
+  color: #94a3b8;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 .notice-list {
@@ -189,5 +255,17 @@ onMounted(() => {
   color: #15803d;
   text-decoration: none;
   font-weight: 600;
+}
+
+@media (max-width: 1280px) {
+  .metric-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 960px) {
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

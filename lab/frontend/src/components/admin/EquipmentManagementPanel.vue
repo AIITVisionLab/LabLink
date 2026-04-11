@@ -30,8 +30,8 @@
               <template #default="scope">
                 <el-image 
                   v-if="scope.row.imageUrl" 
-                  :src="scope.row.imageUrl" 
-                  :preview-src-list="[scope.row.imageUrl]"
+                  :src="resolveFileUrl(scope.row.imageUrl)" 
+                  :preview-src-list="[resolveFileUrl(scope.row.imageUrl)]"
                   style="width: 50px; height: 50px"
                 />
               </template>
@@ -143,6 +143,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { getEquipmentList, addEquipment, updateEquipment, deleteEquipment as deleteEquipmentApi, getBorrowList, auditBorrow as auditBorrowApi, returnEquipment as returnEquipmentApi } from '@/api/equipment'
 import { useUserStore } from '@/stores/user'
 import FileUpload from '@/components/FileUpload.vue'
+import { resolveFileUrl } from '@/utils/file'
 
 const userStore = useUserStore()
 const activeTab = ref('list')

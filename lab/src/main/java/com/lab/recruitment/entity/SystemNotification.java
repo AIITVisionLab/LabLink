@@ -34,6 +34,9 @@ public class SystemNotification {
     @TableField("related_id")
     private Long relatedId;
 
+    @TableField("redirect_path")
+    private String redirectPath;
+
     @TableField("is_read")
     private Integer isRead;
 

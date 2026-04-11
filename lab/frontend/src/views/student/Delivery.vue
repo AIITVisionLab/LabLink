@@ -1,12 +1,13 @@
 <template>
   <div class="delivery-page">
-    <el-card v-if="offerSummary.pendingOfferCount > 0" class="offer-notice-card" shadow="never">
-      <template #header>
-        <div class="offer-notice-header">
-          <span>录取通知</span>
-          <el-tag type="warning">待处理 {{ offerSummary.pendingOfferCount }} 项</el-tag>
-        </div>
-      </template>
+    <TablePageCard
+      v-if="offerSummary.pendingOfferCount > 0"
+      class="offer-notice-card"
+      title="录取通知"
+      subtitle="待确认录取通知"
+      :count-label="`待处理 ${offerSummary.pendingOfferCount} 项`"
+      count-tag-type="warning"
+    >
 
       <div class="offer-list">
         <div v-for="offer in offerSummary.offers" :key="offer.id" class="offer-item">
@@ -24,32 +25,31 @@
           </div>
         </div>
       </div>
-    </el-card>
+    </TablePageCard>
 
-    <el-card class="delivery-card" shadow="never">
-      <template #header>
-        <div class="card-header">
-          <div>
-            <span>我的投递</span>
-            <p class="card-subtitle">手机端已切换为卡片视图，桌面端保留表格视图。</p>
-          </div>
-          <el-button type="primary" @click="refreshPageData">
-            <el-icon><Refresh /></el-icon>
-            刷新
-          </el-button>
-        </div>
+    <TablePageCard
+      class="delivery-card"
+      title="我的投递"
+      subtitle="投递与 offer 管理"
+      :count-label="`${pagination.total} 条`"
+    >
+      <template #header-extra>
+        <el-button type="primary" @click="refreshPageData">
+          <el-icon><Refresh /></el-icon>
+          刷新
+        </el-button>
       </template>
 
-      <div class="search-area">
-        <el-form :model="searchForm" inline class="search-form">
-          <el-form-item label="实验室">
-            <el-input
-              v-model="searchForm.labName"
-              placeholder="请输入实验室名称"
-              clearable
-              @keyup.enter="handleSearch"
-            />
-          </el-form-item>
+      <template #filters>
+        <SearchToolbar
+          v-model="searchForm.labName"
+          keyword-label="实验室"
+          placeholder="请输入实验室名称"
+          search-text="搜索"
+          reset-text="重置"
+          @search="handleSearch"
+          @reset="resetSearch"
+        >
           <el-form-item label="状态">
             <el-select v-model="searchForm.status" placeholder="请选择状态" clearable>
               <el-option label="待审核" :value="0" />
@@ -58,12 +58,8 @@
               <el-option label="已撤销" :value="3" />
             </el-select>
           </el-form-item>
-          <el-form-item>
-            <el-button type="primary" @click="handleSearch">搜索</el-button>
-            <el-button @click="resetSearch">重置</el-button>
-          </el-form-item>
-        </el-form>
-      </div>
+        </SearchToolbar>
+      </template>
 
       <div v-if="isMobile" v-loading="loading" class="mobile-delivery-list">
         <template v-if="deliveries.length">
@@ -73,9 +69,7 @@
                 <div class="delivery-mobile-title">{{ row.labName }}</div>
                 <div class="delivery-mobile-time">{{ formatDateTime(row.createTime) }}</div>
               </div>
-              <el-tag :type="getStatusType(row.displayStatus)">
-                {{ getStatusText(row.displayStatus) }}
-              </el-tag>
+              <StatusTag :value="row.displayStatus" :label-map="deliveryStatusLabels" :type-map="deliveryStatusTypes" />
             </div>
 
             <div class="delivery-mobile-body">
@@ -108,9 +102,7 @@
         <el-table-column prop="reason" label="投递内容" min-width="220" show-overflow-tooltip />
         <el-table-column label="状态" width="120">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.displayStatus)">
-              {{ getStatusText(row.displayStatus) }}
-            </el-tag>
+            <StatusTag :value="row.displayStatus" :label-map="deliveryStatusLabels" :type-map="deliveryStatusTypes" />
           </template>
         </el-table-column>
         <el-table-column label="投递时间" width="180">
@@ -139,7 +131,7 @@
         </el-table-column>
       </el-table>
 
-      <div class="pagination">
+      <template #pagination>
         <el-pagination
           v-model:current-page="pagination.current"
           v-model:page-size="pagination.size"
@@ -150,8 +142,8 @@
           @size-change="handleSizeChange"
           @current-change="handleCurrentChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
 
     <el-dialog
       v-model="showDetailDialog"
@@ -164,9 +156,7 @@
         <el-descriptions :column="descriptionColumns" border>
           <el-descriptions-item label="实验室">{{ selectedDelivery.labName }}</el-descriptions-item>
           <el-descriptions-item label="状态">
-            <el-tag :type="getStatusType(selectedDelivery.displayStatus)">
-              {{ getStatusText(selectedDelivery.displayStatus) }}
-            </el-tag>
+            <StatusTag :value="selectedDelivery.displayStatus" :label-map="deliveryStatusLabels" :type-map="deliveryStatusTypes" />
           </el-descriptions-item>
           <el-descriptions-item label="投递时间" :span="descriptionColumns === 1 ? 1 : 2">
             {{ formatDateTime(selectedDelivery.createTime) }}
@@ -218,7 +208,7 @@
             撤销投递
           </el-button>
           <el-button v-if="selectedDelivery?.displayStatus === 3" type="success" @click="confirmOffer(selectedDelivery)">
-            接受 offer
+            接受录取通知
           </el-button>
           <el-button
             v-if="selectedDelivery?.displayStatus === 3"
@@ -226,7 +216,7 @@
             plain
             @click="rejectOffer(selectedDelivery)"
           >
-            拒绝 offer
+            拒绝录取通知
           </el-button>
         </span>
       </template>
@@ -238,6 +228,9 @@
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox, ElNotification } from 'element-plus'
 import { Refresh } from '@element-plus/icons-vue'
+import SearchToolbar from '@/components/common/SearchToolbar.vue'
+import StatusTag from '@/components/common/StatusTag.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import request from '@/utils/request'
 import { buildAttachmentList } from '@/utils/file'
 
@@ -251,6 +244,24 @@ const searchForm = reactive({
   labName: '',
   status: null
 })
+const deliveryStatusLabels = {
+  0: '待审核',
+  1: '已加入',
+  2: '已拒绝',
+  3: '待确认',
+  4: '审核通过',
+  5: '录取通知已关闭',
+  6: '已撤销'
+}
+const deliveryStatusTypes = {
+  0: 'info',
+  1: 'success',
+  2: 'danger',
+  3: 'warning',
+  4: 'primary',
+  5: 'info',
+  6: 'warning'
+}
 
 const pagination = reactive({
   current: 1,
@@ -458,32 +469,6 @@ const withdrawDelivery = async (delivery) => {
   }
 }
 
-const getStatusType = (status) => {
-  const statusMap = {
-    0: 'info',
-    1: 'success',
-    2: 'danger',
-    3: 'warning',
-    4: 'primary',
-    5: '',
-    6: 'warning'
-  }
-  return statusMap[status] || 'info'
-}
-
-const getStatusText = (status) => {
-  const statusMap = {
-    0: '待审核',
-    1: '已加入',
-    2: '已拒绝',
-    3: '待确认',
-    4: '审核通过',
-    5: 'offer 已关闭',
-    6: '已撤销'
-  }
-  return statusMap[status] || '未知状态'
-}
-
 const formatDateTime = (dateString) => {
   if (!dateString) {
     return '-'
@@ -524,20 +509,6 @@ onBeforeUnmount(() => {
 .offer-notice-card {
   border: 1px solid rgba(245, 158, 11, 0.28);
   background: linear-gradient(135deg, rgba(255, 251, 235, 1), rgba(255, 247, 237, 1));
-}
-
-.offer-notice-header,
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-}
-
-.card-subtitle {
-  margin-top: 6px;
-  font-size: 13px;
-  color: #64748b;
 }
 
 .offer-list,
@@ -584,10 +555,6 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.search-area {
-  margin-bottom: 20px;
 }
 
 .delivery-mobile-card {
@@ -641,12 +608,6 @@ onBeforeUnmount(() => {
   margin-top: 16px;
 }
 
-.pagination {
-  margin-top: 20px;
-  display: flex;
-  justify-content: center;
-}
-
 .reason-content,
 .comment-content {
   white-space: pre-wrap;
@@ -674,19 +635,12 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 768px) {
-  .offer-item,
-  .offer-notice-header,
-  .card-header {
+  .offer-item {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .search-form {
-    display: grid;
-    gap: 4px;
-  }
-
-  .search-form :deep(.el-form-item) {
+  :deep(.search-toolbar__form .el-form-item) {
     width: 100%;
     margin-right: 0;
     margin-bottom: 14px;

@@ -30,7 +30,7 @@
     </div>
 
     <section v-if="track" class="match-grid">
-      <el-card class="score-card" shadow="never">
+      <section class="score-card">
         <p class="eyebrow">DYNAMIC MATCH</p>
         <div class="score-shell">
           <div class="score-circle">
@@ -52,15 +52,9 @@
             </div>
           </div>
         </div>
-      </el-card>
+      </section>
 
-      <el-card class="summary-card" shadow="never">
-        <template #header>
-          <div class="section-head">
-            <span>行动建议</span>
-            <el-tag type="warning" effect="plain">按先后顺序推进</el-tag>
-          </div>
-        </template>
+      <TablePageCard class="summary-card" title="行动建议" subtitle="按先后顺序推进" count-label="优先执行" count-tag-type="warning">
 
         <div class="advice-list">
           <div class="advice-item">
@@ -81,16 +75,16 @@
           <el-button @click="router.push(`/student/guide/learn?track=${track.code}`)">去学习路线</el-button>
           <el-button type="primary" @click="openPractice">去练题</el-button>
         </div>
-      </el-card>
+      </TablePageCard>
     </section>
 
-    <el-card v-if="track" class="table-card" shadow="never">
-      <template #header>
-        <div class="section-head">
-          <span>{{ track.name }} 能力模型</span>
-          <el-tag effect="plain">根据测评结果估算</el-tag>
-        </div>
-      </template>
+    <TablePageCard
+      v-if="track"
+      class="table-card"
+      :title="`${track.name} 能力模型`"
+      subtitle="根据测评结果估算"
+      count-label="动态更新"
+    >
 
       <div class="gap-list">
         <div v-for="item in competencies" :key="item.skill" class="gap-item">
@@ -102,7 +96,7 @@
           <p>{{ item.description }}</p>
         </div>
       </div>
-    </el-card>
+    </TablePageCard>
   </div>
 </template>
 
@@ -110,6 +104,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import GradPathNav from '@/components/GradPathNav.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { loadGrowthDashboard } from '@/utils/growthCenterCache'
 import { getGrowthTrackDetail } from '@/api/growthCenter'
 
@@ -263,9 +258,11 @@ onMounted(() => {
 .summary-card,
 .table-card {
   border: 1px solid rgba(14, 165, 233, 0.14);
+  border-radius: 24px;
 }
 
 .score-card {
+  padding: 20px;
   background:
     radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 25%),
     linear-gradient(135deg, #082f49, #0f766e);
@@ -323,13 +320,6 @@ onMounted(() => {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-}
-
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 
 .advice-list,

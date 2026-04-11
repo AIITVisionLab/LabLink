@@ -105,10 +105,15 @@ public class LabApplyServiceImpl extends ServiceImpl<LabApplyMapper, LabApply> i
     public Page<Map<String, Object>> getApplyPage(Integer pageNum, Integer pageSize, Long labId, String status,
                                                   String keyword, User currentUser) {
         Long scopedLabId = labId;
+        Long scopedCollegeId = null;
         if (!currentUserAccessor.isSuperAdmin(currentUser)) {
-            scopedLabId = currentUserAccessor.resolveLabScope(currentUser, labId);
+            if (currentUserAccessor.isCollegeManager(currentUser) && labId == null) {
+                scopedCollegeId = currentUserAccessor.resolveManagedCollegeId(currentUser);
+            } else {
+                scopedLabId = currentUserAccessor.resolveLabScope(currentUser, labId);
+            }
         }
-        return baseMapper.selectApplyPage(new Page<>(pageNum, pageSize), scopedLabId,
+        return baseMapper.selectApplyPage(new Page<>(pageNum, pageSize), scopedLabId, scopedCollegeId,
                 normalizeStatus(status, false), null, trimToNull(keyword));
     }
 

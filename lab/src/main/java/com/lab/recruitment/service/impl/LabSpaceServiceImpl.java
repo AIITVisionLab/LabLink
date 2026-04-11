@@ -80,22 +80,22 @@ public class LabSpaceServiceImpl implements LabSpaceService {
     @Transactional
     public LabSpaceFolder saveFolder(LabSpaceFolder folder, User currentUser) {
         if (folder == null) {
-            throw new RuntimeException("Folder data is required");
+            throw new RuntimeException("文件夹数据不能为空");
         }
         Long labId = resolveLabScope(currentUser, folder.getLabId());
         assertManagePermission(currentUser, labId);
 
         if (!StringUtils.hasText(folder.getFolderName())) {
-            throw new RuntimeException("Folder name is required");
+            throw new RuntimeException("文件夹名称不能为空");
         }
 
         if (folder.getParentId() != null && folder.getParentId() > 0) {
             LabSpaceFolder parent = labSpaceFolderMapper.selectById(folder.getParentId());
             if (parent == null || parent.getDeleted() != null && parent.getDeleted() == 1) {
-                throw new RuntimeException("Parent folder does not exist");
+                throw new RuntimeException("父级文件夹不存在");
             }
             if (!labId.equals(parent.getLabId())) {
-                throw new RuntimeException("Parent folder does not belong to current lab");
+                throw new RuntimeException("父级文件夹不属于当前实验室");
             }
         }
 
@@ -112,10 +112,10 @@ public class LabSpaceServiceImpl implements LabSpaceService {
 
         LabSpaceFolder existing = labSpaceFolderMapper.selectById(folder.getId());
         if (existing == null) {
-            throw new RuntimeException("Folder does not exist");
+            throw new RuntimeException("文件夹不存在");
         }
         if (!labId.equals(existing.getLabId())) {
-            throw new RuntimeException("No permission to modify this folder");
+            throw new RuntimeException("无权修改该文件夹");
         }
         existing.setFolderName(folder.getFolderName().trim());
         if (folder.getCategory() != null) {
@@ -154,13 +154,13 @@ public class LabSpaceServiceImpl implements LabSpaceService {
                                           MultipartFile file, User currentUser) {
         Long labId = resolveLabScope(currentUser, requestedLabId);
         if (file == null || file.isEmpty()) {
-            throw new RuntimeException("File is required");
+            throw new RuntimeException("请选择要上传的文件");
         }
         assertFolderScope(labId, folderId);
 
         String originalFilename = trimToNull(file.getOriginalFilename());
         if (!StringUtils.hasText(originalFilename)) {
-            throw new RuntimeException("Original file name is missing");
+            throw new RuntimeException("原始文件名缺失");
         }
 
         String extension = getExtension(originalFilename);
@@ -172,7 +172,7 @@ public class LabSpaceServiceImpl implements LabSpaceService {
         try {
             file.transferTo(targetFile.toFile());
         } catch (IOException e) {
-            throw new RuntimeException("Failed to save file: " + e.getMessage(), e);
+            throw new RuntimeException("保存文件失败：" + e.getMessage(), e);
         }
 
         LabSpaceFile labSpaceFile = new LabSpaceFile();
@@ -202,11 +202,11 @@ public class LabSpaceServiceImpl implements LabSpaceService {
     @Transactional
     public boolean updateArchiveFlag(Long fileId, Integer archiveFlag, User currentUser) {
         if (fileId == null) {
-            throw new RuntimeException("File id is required");
+            throw new RuntimeException("文件 ID 不能为空");
         }
         LabSpaceFile file = labSpaceFileMapper.selectById(fileId);
         if (file == null) {
-            throw new RuntimeException("File does not exist");
+            throw new RuntimeException("文件不存在");
         }
         Long labId = resolveLabScope(currentUser, file.getLabId());
         assertManagePermission(currentUser, labId);
@@ -269,14 +269,14 @@ public class LabSpaceServiceImpl implements LabSpaceService {
 
     private Long resolveLabScope(User currentUser, Long requestedLabId) {
         if (currentUser == null) {
-            throw new RuntimeException("Current user is required");
+            throw new RuntimeException("当前用户不能为空");
         }
         if (!currentUserAccessor.isAdmin(currentUser) && !currentUserAccessor.isTeacherIdentity(currentUser)) {
             if (currentUser.getLabId() == null) {
-                throw new RuntimeException("Current account has not joined any lab");
+                throw new RuntimeException("当前账号尚未加入实验室");
             }
             if (requestedLabId != null && !currentUser.getLabId().equals(requestedLabId)) {
-                throw new RuntimeException("No permission to access another lab");
+                throw new RuntimeException("无权访问其他实验室的数据");
             }
             return currentUser.getLabId();
         }
@@ -289,7 +289,7 @@ public class LabSpaceServiceImpl implements LabSpaceService {
             return;
         }
         if (!currentUserAccessor.isLabManager(currentUser)) {
-            throw new RuntimeException("Only lab managers can modify lab space");
+            throw new RuntimeException("仅实验室管理员可修改资料空间");
         }
         currentUserAccessor.assertLabScope(currentUser, labId);
     }
@@ -346,14 +346,14 @@ public class LabSpaceServiceImpl implements LabSpaceService {
 
     private void assertFolderScope(Long labId, Long folderId) {
         if (folderId == null) {
-            throw new RuntimeException("Folder id is required");
+            throw new RuntimeException("文件夹 ID 不能为空");
         }
         LabSpaceFolder folder = labSpaceFolderMapper.selectById(folderId);
         if (folder == null) {
-            throw new RuntimeException("Folder does not exist");
+            throw new RuntimeException("文件夹不存在");
         }
         if (!labId.equals(folder.getLabId())) {
-            throw new RuntimeException("Folder does not belong to current lab");
+            throw new RuntimeException("文件夹不属于当前实验室");
         }
     }
 

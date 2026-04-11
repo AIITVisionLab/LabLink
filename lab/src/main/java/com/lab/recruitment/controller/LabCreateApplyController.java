@@ -31,7 +31,7 @@ public class LabCreateApplyController {
     private CurrentUserAccessor currentUserAccessor;
 
     @PostMapping
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("hasRole('TEACHER')")
     public Result<Object> createApply(@Validated @RequestBody LabCreateApplyCreateDTO createDTO) {
         try {
             User currentUser = currentUserAccessor.getCurrentUser();

@@ -38,7 +38,8 @@ public interface UserService extends IService<User> {
      */
     Page<User> getUserPage(Integer pageNum, Integer pageSize, String realName, String studentId, String major, String role);
 
-    Page<User> getStudentPageForAdmin(Integer pageNum, Integer pageSize, String keyword, String realName, String studentId, String major, Long labId);
+    Page<User> getStudentPageForAdmin(Integer pageNum, Integer pageSize, String keyword, String realName,
+                                      String studentId, String major, Long collegeId, Long labId);
     
     /**
      * 查询所有管理员（不包括总负责人）

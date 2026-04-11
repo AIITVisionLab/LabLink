@@ -28,12 +28,14 @@ public interface UserMapper extends BaseMapper<User> {
                                          @Param("realName") String realName,
                                          @Param("studentId") String studentId,
                                          @Param("major") String major,
+                                         @Param("collegeId") Long collegeId,
                                          @Param("labId") Long labId);
 
     Long countStudentPageForAdmin(@Param("keyword") String keyword,
                                   @Param("realName") String realName,
                                   @Param("studentId") String studentId,
                                   @Param("major") String major,
+                                  @Param("collegeId") Long collegeId,
                                   @Param("labId") Long labId);
 
     User findByUsernameAndDeleted(@Param("username") String username, @Param("deleted") Integer deleted);

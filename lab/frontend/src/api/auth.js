@@ -58,7 +58,21 @@ export function resetPassword(data) {
 
 export function getUserInfo() {
   return request({
-    url: '/api/access/profile',
+    url: '/api/auth/me',
+    method: 'get'
+  })
+}
+
+export function getAuthMenus() {
+  return request({
+    url: '/api/auth/menus',
+    method: 'get'
+  })
+}
+
+export function getAuthPermissions() {
+  return request({
+    url: '/api/auth/permissions',
     method: 'get'
   })
 }

@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 
 @Component
 @Order(2)
-@ConditionalOnProperty(value = "app.schema.runtime-update-enabled", havingValue = "true", matchIfMissing = true)
+@ConditionalOnProperty(value = "app.schema.runtime-update-enabled", havingValue = "true")
 public class PlatformAttendanceSchemaRunner implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(PlatformAttendanceSchemaRunner.class);
@@ -263,6 +263,50 @@ public class PlatformAttendanceSchemaRunner implements CommandLineRunner {
                 "CONSTRAINT fk_attendance_duty_session FOREIGN KEY (session_id) REFERENCES t_attendance_session(id)," +
                 "CONSTRAINT fk_attendance_duty_college FOREIGN KEY (college_id) REFERENCES t_college(id)," +
                 "CONSTRAINT fk_attendance_duty_admin FOREIGN KEY (duty_admin_user_id) REFERENCES t_user(id)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS t_attendance_leave (" +
+                "id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "session_id BIGINT NOT NULL," +
+                "task_id BIGINT NOT NULL," +
+                "lab_id BIGINT NOT NULL," +
+                "user_id BIGINT NOT NULL," +
+                "leave_reason VARCHAR(255) NOT NULL," +
+                "leave_status VARCHAR(32) NOT NULL DEFAULT 'PENDING'," +
+                "review_comment VARCHAR(255) NULL," +
+                "reviewed_by BIGINT NULL," +
+                "review_time DATETIME NULL," +
+                "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                "updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP," +
+                "deleted TINYINT NOT NULL DEFAULT 0," +
+                "UNIQUE KEY uk_attendance_leave_session_user_deleted (session_id, user_id, deleted)," +
+                "KEY idx_attendance_leave_lab_status_time (lab_id, leave_status, deleted, created_at)," +
+                "KEY idx_attendance_leave_user_status_time (user_id, leave_status, deleted, created_at)," +
+                "CONSTRAINT fk_attendance_leave_session FOREIGN KEY (session_id) REFERENCES t_attendance_session(id)," +
+                "CONSTRAINT fk_attendance_leave_task FOREIGN KEY (task_id) REFERENCES t_attendance_task(id)," +
+                "CONSTRAINT fk_attendance_leave_lab FOREIGN KEY (lab_id) REFERENCES t_lab(id)," +
+                "CONSTRAINT fk_attendance_leave_user FOREIGN KEY (user_id) REFERENCES t_user(id)" +
+                ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        jdbcTemplate.execute("CREATE TABLE IF NOT EXISTS t_attendance_change_log (" +
+                "id BIGINT AUTO_INCREMENT PRIMARY KEY," +
+                "session_id BIGINT NOT NULL," +
+                "record_id BIGINT NOT NULL," +
+                "lab_id BIGINT NOT NULL," +
+                "user_id BIGINT NOT NULL," +
+                "before_status VARCHAR(32) NULL," +
+                "after_status VARCHAR(32) NOT NULL," +
+                "changed_by BIGINT NOT NULL," +
+                "changed_reason VARCHAR(255) NOT NULL," +
+                "created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP," +
+                "deleted TINYINT NOT NULL DEFAULT 0," +
+                "KEY idx_attendance_change_log_record_time (record_id, deleted, created_at)," +
+                "KEY idx_attendance_change_log_lab_time (lab_id, deleted, created_at)," +
+                "KEY idx_attendance_change_log_user_time (user_id, deleted, created_at)," +
+                "CONSTRAINT fk_attendance_change_log_session FOREIGN KEY (session_id) REFERENCES t_attendance_session(id)," +
+                "CONSTRAINT fk_attendance_change_log_record FOREIGN KEY (record_id) REFERENCES t_attendance_record(id)," +
+                "CONSTRAINT fk_attendance_change_log_lab FOREIGN KEY (lab_id) REFERENCES t_lab(id)," +
+                "CONSTRAINT fk_attendance_change_log_user FOREIGN KEY (user_id) REFERENCES t_user(id)" +
                 ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     }
 

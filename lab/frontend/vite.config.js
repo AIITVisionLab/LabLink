@@ -2,6 +2,34 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { resolve } from 'path'
 
+function resolveNodeModuleChunk(id) {
+  if (!id.includes('node_modules')) {
+    return undefined
+  }
+
+  if (id.includes('/vue-router/')) {
+    return 'vendor-router'
+  }
+
+  if (id.includes('/pinia/')) {
+    return 'vendor-store'
+  }
+
+  if (id.includes('/axios/')) {
+    return 'vendor-axios'
+  }
+
+  if (id.includes('/dayjs/')) {
+    return 'vendor-dayjs'
+  }
+
+  if (id.includes('/recorder-core/')) {
+    return 'vendor-recorder'
+  }
+
+  return 'vendor-misc'
+}
+
 export default defineConfig({
   plugins: [vue()],
   resolve: {
@@ -25,12 +53,10 @@ export default defineConfig({
     }
   },
   build: {
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['vue', 'vue-router', 'pinia'],
-          element: ['element-plus']
-        }
+        manualChunks: resolveNodeModuleChunk
       }
     }
   }

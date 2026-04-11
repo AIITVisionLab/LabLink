@@ -11,10 +11,15 @@
         </div>
       </div>
 
-      <el-form :inline="true" :model="filters" class="toolbar-form">
-        <el-form-item label="关键字">
-          <el-input v-model="filters.keyword" clearable placeholder="公告标题 / 内容" />
-        </el-form-item>
+      <SearchToolbar
+        v-model="filters.keyword"
+        keyword-label="关键字"
+        placeholder="公告标题 / 内容"
+        search-text="查询"
+        reset-text="重置"
+        @search="handleSearch"
+        @reset="resetFilters"
+      >
         <el-form-item label="范围">
           <el-select v-model="filters.publishScope" clearable placeholder="全部范围" style="width: 140px">
             <el-option label="学校" value="school" />
@@ -22,13 +27,10 @@
             <el-option label="实验室" value="lab" />
           </el-select>
         </el-form-item>
-        <el-form-item>
-          <el-button type="primary" @click="loadNotices">查询</el-button>
-        </el-form-item>
-      </el-form>
+      </SearchToolbar>
     </section>
 
-    <el-card shadow="never" class="panel-card">
+    <TablePageCard title="公告列表" subtitle="学校 / 学院 / 实验室公告" :count-label="`${pagination.total} 条`">
       <div v-if="!notices.length && !loading" class="empty-panel">
         <el-empty description="暂无公告" />
       </div>
@@ -51,7 +53,7 @@
         </article>
       </div>
 
-      <div class="pagination-row">
+      <template #pagination>
         <el-pagination
           background
           layout="prev, pager, next, total"
@@ -60,8 +62,8 @@
           :total="pagination.total"
           @current-change="handlePageChange"
         />
-      </div>
-    </el-card>
+      </template>
+    </TablePageCard>
   </div>
 </template>
 
@@ -69,6 +71,8 @@
 import dayjs from 'dayjs'
 import { onMounted, reactive, ref } from 'vue'
 import { getNoticePage } from '@/api/notices'
+import SearchToolbar from '@/components/common/SearchToolbar.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 
 const loading = ref(false)
 const notices = ref([])
@@ -102,6 +106,18 @@ const loadNotices = async () => {
 
 const handlePageChange = (page) => {
   pagination.pageNum = page
+  loadNotices()
+}
+
+const handleSearch = () => {
+  pagination.pageNum = 1
+  loadNotices()
+}
+
+const resetFilters = () => {
+  filters.keyword = ''
+  filters.publishScope = ''
+  pagination.pageNum = 1
   loadNotices()
 }
 
@@ -152,9 +168,4 @@ onMounted(() => {
   font-size: 12px;
 }
 
-.pagination-row {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: 18px;
-}
 </style>

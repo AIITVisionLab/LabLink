@@ -22,34 +22,19 @@
     </div>
 
     <section v-if="track" class="learn-grid">
-      <el-card class="overview-card" shadow="never">
+      <section class="overview-card">
         <p class="eyebrow">ROADMAP</p>
         <h2>{{ track.name }}</h2>
         <p class="overview-text">{{ track.fitScene }}</p>
 
         <div class="summary-metrics">
-          <div class="metric-item">
-            <strong>{{ stages.length }}</strong>
-            <span>阶段任务</span>
-          </div>
-          <div class="metric-item">
-            <strong>{{ track.recommendedKeyword || '-' }}</strong>
-            <span>推荐练题关键词</span>
-          </div>
-          <div class="metric-item">
-            <strong>{{ track.interviewPosition || '-' }}</strong>
-            <span>推荐面试岗位</span>
-          </div>
+          <MetricCard label="阶段任务" :value="stages.length" tip="按阶段推进" compact />
+          <MetricCard label="推荐练题关键词" :value="track.recommendedKeyword || '-'" tip="配合练题入口使用" compact />
+          <MetricCard label="推荐面试岗位" :value="track.interviewPosition || '-'" tip="可直接跳转 AI 面试" compact />
         </div>
-      </el-card>
+      </section>
 
-      <el-card class="aside-card" shadow="never">
-        <template #header>
-          <div class="section-head">
-            <span>资源导航</span>
-            <el-tag type="success" effect="plain">数据库驱动</el-tag>
-          </div>
-        </template>
+      <TablePageCard class="aside-card" title="资源导航" subtitle="配套课程与资料" count-label="数据库驱动" count-tag-type="success">
 
         <div class="resource-stack">
           <div class="resource-group">
@@ -69,19 +54,18 @@
             <span v-for="item in track.certificates || []" :key="item">{{ item }}</span>
           </div>
         </div>
-      </el-card>
+      </TablePageCard>
     </section>
 
     <div class="timeline">
-      <el-card v-for="item in stages" :key="item.id" class="stage-card" shadow="never">
-        <div class="stage-head">
-          <div>
-            <p class="phase">{{ item.phaseCode }}</p>
-            <h3>{{ item.title }}</h3>
-          </div>
-          <el-tag effect="plain">Stage {{ item.stageNo }}</el-tag>
-        </div>
-
+      <TablePageCard
+        v-for="item in stages"
+        :key="item.id"
+        class="stage-card"
+        :title="item.title"
+        :subtitle="item.phaseCode"
+        :count-label="`Stage ${item.stageNo}`"
+      >
         <div class="meta-line">{{ item.duration }}</div>
         <p class="stage-desc">{{ item.goal }}</p>
 
@@ -106,7 +90,7 @@
           <el-button @click="openPractice(item.practiceKeyword)">按这个阶段练题</el-button>
           <el-button type="primary" plain @click="openInterview">转到 AI 面试</el-button>
         </div>
-      </el-card>
+      </TablePageCard>
     </div>
   </div>
 </template>
@@ -115,6 +99,8 @@
 import { onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import GradPathNav from '@/components/GradPathNav.vue'
+import MetricCard from '@/components/common/MetricCard.vue'
+import TablePageCard from '@/components/common/TablePageCard.vue'
 import { loadGrowthDashboard } from '@/utils/growthCenterCache'
 import { getGrowthTrackDetail } from '@/api/growthCenter'
 
@@ -248,9 +234,11 @@ onMounted(() => {
 .aside-card,
 .stage-card {
   border: 1px solid rgba(14, 165, 233, 0.14);
+  border-radius: 24px;
 }
 
 .overview-card {
+  padding: 20px;
   background:
     radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 25%),
     linear-gradient(135deg, #082f49, #155e75);
@@ -288,33 +276,15 @@ onMounted(() => {
   gap: 14px;
 }
 
-.metric-item {
-  padding: 16px;
-  border-radius: 18px;
+.summary-metrics :deep(.metric-card) {
   background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.12);
 }
 
-.metric-item strong,
-.metric-item span {
-  display: block;
-}
-
-.metric-item strong {
-  font-size: 22px;
-}
-
-.metric-item span {
-  margin-top: 6px;
-  font-size: 13px;
-  color: rgba(226, 232, 240, 0.88);
-}
-
-.section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.summary-metrics :deep(.metric-card__label),
+.summary-metrics :deep(.metric-card__tip),
+.summary-metrics :deep(.metric-card__value) {
+  color: #e2e8f0;
 }
 
 .resource-stack,
@@ -324,7 +294,7 @@ onMounted(() => {
 }
 
 .resource-group,
-.stage-card {
+.stage-card :deep(.table-page-card__body) {
   padding: 18px;
   border-radius: 20px;
   background: linear-gradient(180deg, #ffffff, #f8fbff);

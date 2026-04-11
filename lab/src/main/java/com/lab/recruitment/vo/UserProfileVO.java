@@ -30,4 +30,7 @@ public class UserProfileVO {
     private Boolean collegeManager;
     private Boolean labManager;
     private List<String> platformPostCodes = new ArrayList<>();
+    private String portalRole;
+    private List<String> authorities = new ArrayList<>();
+    private List<String> permissions = new ArrayList<>();
 }
