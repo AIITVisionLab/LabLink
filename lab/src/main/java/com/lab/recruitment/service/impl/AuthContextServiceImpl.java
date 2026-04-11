@@ -1,7 +1,9 @@
 package com.lab.recruitment.service.impl;
 
 import com.lab.recruitment.config.PlatformCacheNames;
+import com.lab.recruitment.entity.Lab;
 import com.lab.recruitment.entity.User;
+import com.lab.recruitment.mapper.LabMapper;
 import com.lab.recruitment.service.AuthContextService;
 import com.lab.recruitment.service.UserAccessService;
 import com.lab.recruitment.support.UserAccessProfile;
@@ -26,6 +28,9 @@ public class AuthContextServiceImpl implements AuthContextService {
     @Autowired
     private UserAccessService userAccessService;
 
+    @Autowired
+    private LabMapper labMapper;
+
     @Override
     public UserProfileVO buildContext(User user) {
         UserAccessProfile profile = userAccessService.buildProfile(user);
@@ -45,6 +50,8 @@ public class AuthContextServiceImpl implements AuthContextService {
         profileVO.setAvatar(user.getAvatar());
         profileVO.setResume(user.getResume());
         profileVO.setLabId(resolvedLabId != null ? resolvedLabId : user.getLabId());
+        profileVO.setManagedLabId(profile.getManagedLabId());
+        profileVO.setLabName(resolveLabName(resolvedLabId != null ? resolvedLabId : user.getLabId()));
         profileVO.setCanEdit(user.getCanEdit());
         profileVO.setStatus(user.getStatus());
         profileVO.setPrimaryIdentity(profile.getPrimaryIdentity());
@@ -225,5 +232,13 @@ public class AuthContextServiceImpl implements AuthContextService {
         menu.setLabel(label);
         menu.setIcon(icon);
         return menu;
+    }
+
+    private String resolveLabName(Long labId) {
+        if (labId == null) {
+            return null;
+        }
+        Lab lab = labMapper.selectById(labId);
+        return lab == null ? null : lab.getLabName();
     }
 }

@@ -25,11 +25,20 @@ public class LabAttendance {
     @TableField("user_id")
     private Long userId;
 
+    @TableField("session_id")
+    private Long sessionId;
+
     @TableField("attendance_date")
     private String attendanceDate;
 
+    @TableField("checkin_time")
+    private LocalDateTime checkinTime;
+
     @TableField("status")
     private Integer status;
+
+    @TableField("tag_type")
+    private String tagType;
 
     @TableField("reason")
     private String reason;
@@ -39,6 +48,9 @@ public class LabAttendance {
 
     @TableField("confirm_time")
     private LocalDateTime confirmTime;
+
+    @TableField("export_flag")
+    private Integer exportFlag;
 
     @TableField(value = "create_time", fill = FieldFill.INSERT)
     private LocalDateTime createTime;

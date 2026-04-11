@@ -6,7 +6,10 @@
       </button>
       <div class="m-title-block">
         <span class="m-title">{{ title }}</span>
-        <span class="m-subtitle">学生移动工作台</span>
+        <div class="m-subline">
+          <span class="m-subtitle">学生移动工作台</span>
+          <span class="m-context-chip" :class="{ muted: !hasLabAccess }">{{ scopeLabel }}</span>
+        </div>
       </div>
       <button class="m-nav-btn" type="button" @click="router.push('/m/student/notifications')">
         <el-icon :size="20"><Bell /></el-icon>
@@ -63,6 +66,7 @@ const userInitial = computed(() => userStore.realName?.charAt(0) || userStore.us
 const canGoBack = computed(() => route.path !== '/m/student/dashboard')
 const hasLabAccess = computed(() => Boolean(userStore.userInfo?.labId))
 const canApplyLab = computed(() => userStore.hasPermission('lab:apply:self'))
+const scopeLabel = computed(() => userStore.userInfo?.labName || (hasLabAccess.value ? `实验室 #${userStore.userInfo.labId}` : '待加入实验室'))
 
 const tabItems = computed(() =>
   [
@@ -133,6 +137,19 @@ onMounted(() => {
   opacity: 0.9;
 }
 
+.m-shell::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(rgba(148, 163, 184, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.06) 1px, transparent 1px);
+  background-size: 24px 24px;
+  mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.4), transparent 70%);
+  opacity: 0.35;
+}
+
 .m-topbar {
   position: sticky;
   top: 0;
@@ -146,6 +163,16 @@ onMounted(() => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.7);
   box-shadow: 0 14px 34px rgba(15, 23, 42, 0.08);
   backdrop-filter: blur(18px);
+}
+
+.m-topbar::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(37, 99, 235, 0.18), transparent);
 }
 
 .m-nav-btn,
@@ -215,11 +242,35 @@ onMounted(() => {
   letter-spacing: 0.04em;
 }
 
+.m-subline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.m-context-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.m-context-chip.muted {
+  background: rgba(148, 163, 184, 0.14);
+  color: #64748b;
+}
+
 .m-content {
   flex: 1;
   width: min(720px, 100%);
   margin: 0 auto;
-  padding: 18px 14px calc(118px + env(safe-area-inset-bottom));
+  padding: 20px 14px calc(118px + env(safe-area-inset-bottom));
 }
 
 .m-tabbar {
@@ -239,6 +290,15 @@ onMounted(() => {
   backdrop-filter: blur(18px);
 }
 
+.m-tabbar::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent 48%);
+  pointer-events: none;
+}
+
 .m-tab {
   border: 0;
   background: transparent;
@@ -256,6 +316,10 @@ onMounted(() => {
   color: var(--accent);
   background: linear-gradient(180deg, var(--accent-soft), rgba(255, 255, 255, 0.78));
   box-shadow: inset 0 0 0 1px var(--accent-strong);
+  transform: translateY(-1px);
+}
+
+.m-tab.active :deep(.el-icon) {
   transform: translateY(-1px);
 }
 

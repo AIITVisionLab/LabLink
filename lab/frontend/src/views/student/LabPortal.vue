@@ -173,11 +173,11 @@
 
             <el-table class="top-gap" :data="attendanceList" border stripe>
               <el-table-column prop="attendanceDate" label="日期" width="140" />
-              <el-table-column label="状态" width="120">
-                <template #default="{ row }">
-                  <StatusTag :value="row.status" :label-map="attendanceStatusLabels" :type-map="attendanceStatusTypes" />
-                </template>
-              </el-table-column>
+                <el-table-column label="状态" width="120">
+                  <template #default="{ row }">
+                    <StatusTag :value="row.tagType || row.status" :label-map="attendanceStatusLabels" :type-map="attendanceStatusTypes" />
+                  </template>
+                </el-table-column>
               <el-table-column prop="reason" label="备注 / 原因" min-width="220" show-overflow-tooltip />
               <el-table-column prop="confirmTime" label="确认时间" width="180" />
             </el-table>
@@ -307,6 +307,12 @@ import {
 } from '@/api/labSpace'
 import StatusTag from '@/components/common/StatusTag.vue'
 import TablePageCard from '@/components/common/TablePageCard.vue'
+import {
+  attendanceStatusLabels,
+  attendanceStatusTypes,
+  getAttendanceStatusText,
+  getAttendanceStatusType
+} from '@/utils/attendance-status'
 
 const activeTab = ref('equipment')
 const loadingOverview = ref(true)
@@ -340,16 +346,6 @@ const borrowStatusTypes = {
   1: 'primary',
   2: 'danger',
   3: 'success'
-}
-const attendanceStatusLabels = {
-  0: '待确认',
-  1: '已出勤',
-  2: '缺勤'
-}
-const attendanceStatusTypes = {
-  0: 'info',
-  1: 'success',
-  2: 'danger'
 }
 const exitStatusLabels = {
   0: '待审核',
@@ -397,13 +393,13 @@ const todayAttendanceTitle = computed(() => {
   if (!todayAttendance.value) {
     return '今日状态：等待管理员确认'
   }
-  return `今日状态：${getAttendanceStatusText(todayAttendance.value.status)}`
+  return `今日状态：${getAttendanceStatusText(todayAttendance.value)}`
 })
 const todayAttendanceType = computed(() => {
   if (!todayAttendance.value) {
     return 'info'
   }
-  return getAttendanceStatusType(todayAttendance.value.status)
+  return getAttendanceStatusType(todayAttendance.value)
 })
 const hasPendingExitApplication = computed(() =>
   exitApplications.value.some((item) => item.status === 0)
@@ -518,18 +514,6 @@ const submitExitRequest = async () => {
 
 const getEquipmentName = (equipmentId) => {
   return equipmentMap.value[equipmentId] || `设备 #${equipmentId}`
-}
-
-const getAttendanceStatusText = (status) => {
-  if (status === 1) return '已出勤'
-  if (status === 2) return '缺勤'
-  return '待确认'
-}
-
-const getAttendanceStatusType = (status) => {
-  if (status === 1) return 'success'
-  if (status === 2) return 'danger'
-  return 'info'
 }
 
 const getLabStatusText = (status) => {

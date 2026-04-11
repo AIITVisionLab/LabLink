@@ -7,7 +7,10 @@ export async function ensureAuthContext(userStore, options = {}) {
     return null
   }
 
-  const shouldLoadProfile = force || !userStore.userInfo?.id
+  const shouldLoadProfile =
+    force ||
+    !userStore.userInfo?.id ||
+    ((userStore.userInfo?.labId || userStore.userInfo?.managedLabId) && !userStore.userInfo?.labName)
   const shouldLoadMenus = force || !Array.isArray(userStore.menus) || userStore.menus.length === 0
   const shouldLoadPermissions =
     force || !Array.isArray(userStore.permissions) || userStore.permissions.length === 0

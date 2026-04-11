@@ -35,6 +35,15 @@ public class AttendanceSession {
     @TableField("session_code")
     private String sessionCode;
 
+    @TableField("session_no")
+    private String sessionNo;
+
+    @TableField("sign_code")
+    private String signCode;
+
+    @TableField("qr_code_content")
+    private String qrCodeContent;
+
     @TableField("status")
     private String status;
 
@@ -49,6 +58,18 @@ public class AttendanceSession {
 
     @TableField("code_expire_time")
     private LocalDateTime codeExpireTime;
+
+    @TableField("start_time")
+    private LocalDateTime startTime;
+
+    @TableField("expire_time")
+    private LocalDateTime expireTime;
+
+    @TableField("duration_seconds")
+    private Integer durationSeconds;
+
+    @TableField("created_by")
+    private Long createdBy;
 
     @TableField("generated_by")
     private Long generatedBy;

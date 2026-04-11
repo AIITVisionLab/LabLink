@@ -3,902 +3,523 @@
     <section class="toolbar-card">
       <div class="toolbar-main">
         <div>
-          <p class="eyebrow">考勤管理</p>
-          <h2>任务设置、当前场次、请假审批与记录修正</h2>
+          <p class="eyebrow">实验室签到管理台</p>
+          <h2>60 秒签到会话、实时记录、结果标签和名单导出</h2>
         </div>
         <div class="toolbar-actions">
-          <el-button @click="loadPageData">刷新</el-button>
-          <el-button v-if="canManageTasks" type="primary" @click="openTaskDialog()">新建任务</el-button>
+          <el-select v-if="showLabSelector" v-model="selectedLabId" placeholder="选择实验室" style="width: 220px" @change="loadPageData">
+            <el-option v-for="item in labOptions" :key="item.id" :label="item.labName" :value="item.id" />
+          </el-select>
+          <el-date-picker v-model="selectedDate" type="date" value-format="YYYY-MM-DD" @change="loadManageList" />
+          <el-button @click="loadPageData">刷新数据</el-button>
+          <el-button type="primary" :loading="creatingSession" :disabled="!labId" @click="handleCreateSession">生成签到码</el-button>
+          <el-button :disabled="!isSessionActive" :loading="expiringSession" @click="handleExpireSession">作废会话</el-button>
+          <el-button :disabled="!isSessionActive" :loading="expiringSession" @click="handleFinalize">保存结果</el-button>
+          <el-button type="success" plain :disabled="!labId" @click="handleExport">导出名单</el-button>
         </div>
       </div>
     </section>
 
-    <section class="metric-grid">
-      <MetricCard v-for="card in summaryCards" :key="card.label" :label="card.label" :value="card.value" :tip="card.tip" />
-    </section>
+    <div v-if="!labId" class="empty-panel">
+      <el-empty description="当前账号没有可管理的实验室" />
+    </div>
 
-    <TablePageCard v-if="canManageTasks" title="考勤任务" subtitle="考勤管理" :count-label="`${pagination.total} 项`">
-      <template #filters>
-        <SearchToolbar v-model="filters.keyword" class="toolbar-form" placeholder="学期或任务名称" :show-reset="false" @search="handleSearch">
-          <el-form-item v-if="isSchoolDirector" label="学院">
-            <el-select v-model="filters.collegeId" clearable placeholder="全部学院" style="width: 220px">
-              <el-option v-for="item in colleges" :key="item.id" :label="item.collegeName" :value="item.id" />
-            </el-select>
-          </el-form-item>
-        </SearchToolbar>
-      </template>
+    <template v-else>
+      <section class="metric-grid">
+        <MetricCard label="总人数" :value="stats.totalCount" tip="当前实验室在册成员" />
+        <MetricCard label="已签到" :value="stats.signedCount" tip="签到成功成员" />
+        <MetricCard label="缺勤" :value="stats.absentCount" tip="未签到且未打标签" />
+        <MetricCard label="请假" :value="stats.leaveCount" tip="管理员补标签为请假" />
+        <MetricCard label="忘记签到" :value="stats.forgotCount" tip="管理员补标签为忘记签到" />
+      </section>
 
-      <el-table v-loading="taskLoading" :data="tasks" stripe>
-        <el-table-column prop="collegeName" label="学院" min-width="160" />
-        <el-table-column prop="semesterName" label="学期" min-width="160" />
-        <el-table-column prop="taskName" label="任务名称" min-width="200" />
-        <el-table-column label="日期范围" min-width="220">
-          <template #default="{ row }">
-            {{ row.startDate || '-' }} 至 {{ row.endDate || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="scheduleCount" label="排班数" width="100" />
-        <el-table-column label="状态" width="120">
-          <template #default="{ row }">
-            <StatusTag :value="row.status" :label-map="taskStatusLabels" :type-map="taskStatusTypes" />
-          </template>
-        </el-table-column>
-        <el-table-column label="创建时间" min-width="170">
-          <template #default="{ row }">{{ formatDateTime(row.createTime) }}</template>
-        </el-table-column>
-        <el-table-column label="操作" min-width="220" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="openTaskDialog(row)">编辑</el-button>
-            <el-button link type="warning" @click="openScheduleDialog(row)">排班</el-button>
-            <el-button v-if="row.status !== 'published'" link type="success" @click="publishTaskAction(row)">发布</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <template #pagination>
-        <el-pagination
-          background
-          layout="prev, pager, next, total"
-          :current-page="pagination.pageNum"
-          :page-size="pagination.pageSize"
-          :total="pagination.total"
-          @current-change="handlePageChange"
-        />
-      </template>
-    </TablePageCard>
-
-    <TablePageCard v-if="hasLabScope" title="当前实验室场次" subtitle="考勤管理">
-      <template #header-extra>
-        <StatusTag :value="currentSession.status" preset="session" />
-      </template>
-      <div v-if="!currentSession.id" class="empty-panel">
-        <el-empty description="当前实验室暂无进行中的考勤场次。" />
-      </div>
-
-      <template v-else>
-        <div class="session-meta">
-          <div class="summary-item">
-            <span>日期</span>
-            <strong>{{ currentSession.sessionDate || '-' }}</strong>
+      <section class="panel-grid">
+        <article class="session-card qr-card">
+          <div class="card-head">
+            <div>
+              <p class="panel-eyebrow">二维码</p>
+              <h3>{{ hasSession ? '当前签到入口' : '等待创建签到会话' }}</h3>
+            </div>
+            <StatusTag :value="sessionStatusLabel" :label-map="sessionStatusLabels" :type-map="sessionStatusTypes" />
           </div>
-          <div class="summary-item">
-            <span>签到窗口</span>
-            <strong>{{ formatTime(currentSession.signStartTime) }} - {{ formatTime(currentSession.signEndTime) }}</strong>
-          </div>
-          <div class="summary-item">
-            <span>动态签到码</span>
-            <strong>{{ sessionCodeDisplay }}</strong>
-            <small>{{ sessionCodeHint }}</small>
-          </div>
-          <div class="summary-item">
-            <span>出勤率</span>
-            <strong>{{ currentSession.attendanceRate ?? 0 }}%</strong>
-          </div>
-        </div>
 
-        <el-upload
-          class="photo-upload"
-          :show-file-list="false"
-          :http-request="handlePhotoUpload"
-        >
-          <el-button type="primary" plain :loading="uploadingPhoto">上传现场照片</el-button>
-        </el-upload>
+          <div v-if="isSessionCodeVisible" class="qr-wrap">
+            <img v-if="qrCodeDataUrl" class="qr-image" :src="qrCodeDataUrl" alt="签到二维码" />
+            <div v-else class="qr-placeholder">QR</div>
+            <p class="qr-tip">学生可扫码进入移动端签到页，也可直接输入签到码。</p>
+          </div>
+          <el-empty v-else description="创建会话后显示二维码" :image-size="88" />
+        </article>
 
-        <el-table :data="currentSession.records || []" stripe class="mt-16">
+        <article class="session-card">
+          <div class="card-head">
+            <div>
+              <p class="panel-eyebrow">当前会话</p>
+              <h3>{{ activeSession.sessionNo || '暂无最近会话' }}</h3>
+            </div>
+            <div class="session-code">{{ visibleSignCode }}</div>
+          </div>
+
+          <div class="summary-grid">
+            <div class="summary-item">
+              <span>状态</span>
+              <strong>{{ sessionStatusText }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>剩余时间</span>
+              <strong>{{ remainingText }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>过期时间</span>
+              <strong>{{ formatDateTime(activeSession.expireTime) }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>说明</span>
+              <strong>{{ sessionHint }}</strong>
+            </div>
+          </div>
+        </article>
+      </section>
+
+      <TablePageCard title="实时签到记录" subtitle="当前会话">
+        <el-table :data="sessionRecords" stripe>
           <el-table-column prop="realName" label="姓名" min-width="140" />
           <el-table-column prop="studentId" label="学号" min-width="120" />
-          <el-table-column prop="memberRole" label="角色" min-width="120" />
-          <el-table-column label="状态" min-width="120">
-            <template #default="{ row }">
-              <StatusTag :value="row.signStatus" preset="attendance" />
-            </template>
-          </el-table-column>
-          <el-table-column label="请假" min-width="140">
-            <template #default="{ row }">
-              <StatusTag :value="row.leaveRequest?.leaveStatus" preset="leave" fallback-label="无" />
-            </template>
-          </el-table-column>
-          <el-table-column label="签到时间" min-width="170">
+          <el-table-column label="签到时间" min-width="180">
             <template #default="{ row }">{{ formatDateTime(row.signTime) }}</template>
           </el-table-column>
-          <el-table-column prop="remark" label="备注" min-width="200" show-overflow-tooltip />
-          <el-table-column label="变更次数" width="90">
-            <template #default="{ row }">{{ row.changeCount || 0 }}</template>
+          <el-table-column label="签到方式" min-width="120">
+            <template #default="{ row }">{{ signMethodLabel(row.signMethod) }}</template>
           </el-table-column>
-          <el-table-column v-if="canReviewRecords" label="操作" min-width="140" fixed="right">
+          <el-table-column prop="statusLabel" label="状态" min-width="120" />
+        </el-table>
+      </TablePageCard>
+
+      <TablePageCard title="当日考勤名单" subtitle="最终归档结果" :count-label="`${attendanceRows.length} 条`">
+        <el-table :data="attendanceRows" stripe>
+          <el-table-column prop="realName" label="姓名" min-width="140" />
+          <el-table-column prop="studentId" label="学号" min-width="120" />
+          <el-table-column prop="college" label="学院" min-width="160" />
+          <el-table-column prop="statusLabel" label="状态" min-width="120" />
+          <el-table-column label="签到时间" min-width="180">
+            <template #default="{ row }">{{ formatDateTime(row.checkinTime) }}</template>
+          </el-table-column>
+          <el-table-column prop="tagLabel" label="标签" min-width="120" />
+          <el-table-column prop="reason" label="备注" min-width="220" show-overflow-tooltip />
+          <el-table-column label="操作" min-width="180" fixed="right">
             <template #default="{ row }">
-              <el-button link type="primary" @click="openReviewDialog(row)">修正</el-button>
+              <template v-if="canTagRow(row)">
+                <el-button link type="warning" @click="handleTag(row, 'leave')">标记请假</el-button>
+                <el-button link type="primary" @click="handleTag(row, 'forgot')">标记忘记签到</el-button>
+              </template>
+              <span v-else class="muted-text">已归档</span>
             </template>
           </el-table-column>
         </el-table>
-      </template>
-    </TablePageCard>
-
-    <TablePageCard v-if="hasLabScope" title="请假审批" subtitle="考勤管理" :count-label="`${leavePagination.total} 条申请`">
-      <template #filters>
-        <SearchToolbar
-          v-model="leaveFilters.keyword"
-          class="toolbar-form"
-          placeholder="姓名、学号或请假原因"
-          :show-reset="false"
-          @search="handleLeaveSearch"
-        >
-          <el-form-item label="状态">
-            <el-select v-model="leaveFilters.leaveStatus" clearable placeholder="全部">
-              <el-option label="待审批" value="PENDING" />
-              <el-option label="已通过" value="APPROVED" />
-              <el-option label="已驳回" value="REJECTED" />
-            </el-select>
-          </el-form-item>
-        </SearchToolbar>
-      </template>
-
-      <el-table v-loading="leaveLoading" :data="leaveRows" stripe>
-        <el-table-column prop="realName" label="姓名" min-width="140" />
-        <el-table-column prop="studentId" label="学号" min-width="120" />
-        <el-table-column prop="sessionDate" label="场次日期" min-width="120" />
-        <el-table-column prop="leaveReason" label="请假原因" min-width="240" show-overflow-tooltip />
-        <el-table-column label="状态" min-width="120">
-          <template #default="{ row }">
-            <StatusTag :value="row.leaveStatus" preset="leave" fallback-label="无" />
-          </template>
-        </el-table-column>
-        <el-table-column label="审核意见" min-width="220" show-overflow-tooltip>
-          <template #default="{ row }">{{ row.reviewComment || '-' }}</template>
-        </el-table-column>
-        <el-table-column v-if="canReviewRecords" label="操作" min-width="180" fixed="right">
-          <template #default="{ row }">
-            <el-button v-if="row.leaveStatus === 'PENDING'" link type="success" @click="reviewLeave(row, true)">通过</el-button>
-            <el-button v-if="row.leaveStatus === 'PENDING'" link type="danger" @click="reviewLeave(row, false)">驳回</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <template #pagination>
-        <el-pagination
-          background
-          layout="prev, pager, next, total"
-          :current-page="leavePagination.pageNum"
-          :page-size="leavePagination.pageSize"
-          :total="leavePagination.total"
-          @current-change="handleLeavePageChange"
-        />
-      </template>
-    </TablePageCard>
-
-    <el-dialog v-model="taskDialogVisible" :title="taskForm.id ? '编辑任务' : '新建任务'" width="720px">
-      <el-form label-width="96px">
-        <div class="two-column-form">
-          <el-form-item label="学院">
-            <el-select v-model="taskForm.collegeId" :disabled="!isSchoolDirector" placeholder="请选择学院">
-              <el-option v-for="item in colleges" :key="item.id" :label="item.collegeName" :value="item.id" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="学期">
-            <el-input v-model="taskForm.semesterName" />
-          </el-form-item>
-          <el-form-item label="任务名称">
-            <el-input v-model="taskForm.taskName" />
-          </el-form-item>
-          <el-form-item label="日期范围">
-            <el-date-picker
-              v-model="taskDateRange"
-              type="daterange"
-              unlink-panels
-              value-format="YYYY-MM-DD"
-              range-separator="至"
-              start-placeholder="开始日期"
-              end-placeholder="结束日期"
-            />
-          </el-form-item>
-        </div>
-        <el-form-item label="说明">
-          <el-input v-model="taskForm.description" type="textarea" :rows="4" maxlength="200" show-word-limit />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="taskDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="savingTask" @click="saveTaskAction">保存</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="scheduleDialogVisible" title="任务排班" width="860px">
-      <div class="schedule-toolbar">
-        <div class="schedule-title">{{ currentTask?.taskName || '-' }}</div>
-        <el-button type="primary" plain @click="addSchedule">添加一行</el-button>
-      </div>
-
-      <el-table :data="scheduleRows" stripe>
-        <el-table-column label="星期" width="120">
-          <template #default="{ row }">
-            <el-select v-model="row.weekDay">
-              <el-option v-for="item in weekOptions" :key="item.value" :label="item.label" :value="item.value" />
-            </el-select>
-          </template>
-        </el-table-column>
-        <el-table-column label="开始时间" min-width="150">
-          <template #default="{ row }">
-            <el-time-picker v-model="row.signInStart" value-format="HH:mm:ss" placeholder="开始时间" />
-          </template>
-        </el-table-column>
-        <el-table-column label="结束时间" min-width="150">
-          <template #default="{ row }">
-            <el-time-picker v-model="row.signInEnd" value-format="HH:mm:ss" placeholder="结束时间" />
-          </template>
-        </el-table-column>
-        <el-table-column label="迟到阈值" width="140">
-          <template #default="{ row }">
-            <el-input-number v-model="row.lateThresholdMinutes" :min="1" :max="120" />
-          </template>
-        </el-table-column>
-        <el-table-column label="签到码长度" width="130">
-          <template #default="{ row }">
-            <el-input-number v-model="row.signCodeLength" :min="4" :max="6" />
-          </template>
-        </el-table-column>
-        <el-table-column label="有效期" width="120">
-          <template #default="{ row }">
-            <el-input-number v-model="row.codeTtlMinutes" :min="1" :max="180" />
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="90" fixed="right">
-          <template #default="{ $index }">
-            <el-button link type="danger" @click="removeSchedule($index)">删除</el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-
-      <template #footer>
-        <el-button @click="scheduleDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="savingSchedules" @click="saveSchedulesAction">保存排班</el-button>
-      </template>
-    </el-dialog>
-
-    <el-dialog v-model="reviewDialogVisible" title="修正考勤记录" width="560px">
-      <el-form label-width="110px">
-        <el-form-item label="学生">
-          <div>{{ reviewForm.realName }} / {{ reviewForm.studentId }}</div>
-        </el-form-item>
-        <el-form-item label="状态">
-          <el-select v-model="reviewForm.signStatus">
-            <el-option label="正常" value="normal" />
-            <el-option label="迟到" value="late" />
-            <el-option label="请假" value="leave" />
-            <el-option label="缺勤" value="absent" />
-            <el-option label="补签" value="supplement" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="reviewForm.remark" type="textarea" :rows="3" maxlength="120" show-word-limit />
-        </el-form-item>
-        <el-form-item label="修正原因">
-          <el-input v-model="reviewForm.changedReason" type="textarea" :rows="3" maxlength="120" show-word-limit />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="reviewDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="savingReview" @click="submitReview">保存</el-button>
-      </template>
-    </el-dialog>
+      </TablePageCard>
+    </template>
   </div>
 </template>
 
 <script setup>
 import dayjs from 'dayjs'
+import QRCode from 'qrcode'
+import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import MetricCard from '@/components/common/MetricCard.vue'
-import SearchToolbar from '@/components/common/SearchToolbar.vue'
 import StatusTag from '@/components/common/StatusTag.vue'
 import TablePageCard from '@/components/common/TablePageCard.vue'
 import {
-  approveAttendanceLeave,
-  getAttendanceLeavePage,
-  getAttendanceTaskPage,
-  getAttendanceTaskSchedules,
-  getCurrentLabAttendanceSession,
-  publishAttendanceTask,
-  rejectAttendanceLeave,
-  reviewAttendanceRecord,
-  saveAttendanceTask,
-  saveAttendanceTaskSchedules,
-  uploadAttendanceSessionPhoto
-} from '@/api/attendanceWorkflow'
-import { getCollegeOptions } from '@/api/colleges'
+  createAttendanceSession,
+  exportAttendanceManage,
+  expireAttendanceSession,
+  finalizeAttendanceSession,
+  getActiveAttendanceSession,
+  getAttendanceManageList,
+  getAttendanceSessionRecords,
+  tagAttendanceManage
+} from '@/api/attendance'
+import { getLabPage } from '@/api/lab'
 import { useUserStore } from '@/stores/user'
+import { createSessionCountdown } from '@/utils/attendanceSession'
+import { buildPublicAppUrl } from '@/utils/public-url'
 
 const userStore = useUserStore()
-
-const taskLoading = ref(false)
-const leaveLoading = ref(false)
-const savingTask = ref(false)
-const savingSchedules = ref(false)
-const uploadingPhoto = ref(false)
-const savingReview = ref(false)
-const taskDialogVisible = ref(false)
-const scheduleDialogVisible = ref(false)
-const reviewDialogVisible = ref(false)
-const tasks = ref([])
-const colleges = ref([])
-const currentTask = ref(null)
-const scheduleRows = ref([])
-const currentSession = reactive({
-  id: null,
-  status: null,
-  sessionDate: '',
-  signStartTime: '',
-  signEndTime: '',
-  sessionCode: '',
-  codeReady: false,
-  codeExpireTime: '',
-  codeRemainingSeconds: 0,
-  attendanceRate: 0,
-  records: [],
-  totalCount: 0
-})
-const leaveRows = ref([])
-
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
-})
-
-const leavePagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
-})
-
-const filters = reactive({
-  collegeId: undefined,
-  keyword: ''
-})
-
-const leaveFilters = reactive({
-  leaveStatus: 'PENDING',
-  keyword: ''
-})
-const taskStatusLabels = {
-  draft: '草稿',
-  published: '已发布'
-}
-const taskStatusTypes = {
-  draft: 'info',
-  published: 'success'
-}
-
-const taskForm = reactive({
-  id: null,
-  collegeId: undefined,
-  semesterName: '',
-  taskName: '',
-  description: '',
-  startDate: '',
-  endDate: ''
-})
-
-const taskDateRange = ref([])
-
-const reviewForm = reactive({
-  sessionId: null,
-  userId: null,
-  realName: '',
-  studentId: '',
-  signStatus: 'normal',
-  remark: '',
-  changedReason: ''
-})
-
-const isSchoolDirector = computed(() => Boolean(userStore.userInfo?.schoolDirector))
-const canManageTasks = computed(() => userStore.hasPermission('attendance:task:manage'))
-const canReviewRecords = computed(() => userStore.hasPermission('attendance:record:manage'))
-const hasLabScope = computed(() => Boolean(userStore.userInfo?.managedLabId || userStore.userInfo?.labId))
-
-const summaryCards = computed(() => [
-  {
-    label: '任务数',
-    value: pagination.total,
-    tip: '当前管理范围内的考勤任务数'
-  },
-  {
-    label: '已发布',
-    value: tasks.value.filter((item) => item.status === 'published').length,
-    tip: '已进入执行状态的任务'
-  },
-  {
-    label: '待审批请假',
-    value: leaveRows.value.filter((item) => item.leaveStatus === 'PENDING').length,
-    tip: '等待审核的请假申请'
-  },
-  {
-    label: '当前记录',
-    value: currentSession.records?.length || 0,
-    tip: '当前场次中的成员记录数'
+const labOptions = ref([])
+const selectedLabId = ref(null)
+const hasBroadLabScope = computed(() => Boolean(userStore.userInfo?.schoolDirector || userStore.userInfo?.collegeManager))
+const showLabSelector = computed(() => hasBroadLabScope.value)
+const fixedLabId = computed(() => {
+  if (userStore.userInfo?.managedLabId) {
+    return userStore.userInfo.managedLabId
   }
-])
+  return hasBroadLabScope.value ? null : (userStore.userInfo?.labId || null)
+})
+const labId = computed(() => selectedLabId.value || fixedLabId.value || null)
+const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
+const creatingSession = ref(false)
+const expiringSession = ref(false)
+const qrCodeDataUrl = ref('')
+const sessionRecords = ref([])
+const attendanceRows = ref([])
 
-const weekOptions = [
-  { label: '周一', value: 1 },
-  { label: '周二', value: 2 },
-  { label: '周三', value: 3 },
-  { label: '周四', value: 4 },
-  { label: '周五', value: 5 },
-  { label: '周六', value: 6 },
-  { label: '周日', value: 7 }
-]
-const SESSION_POLL_INTERVAL_MS = 15000
-let sessionPollTimer = null
+const activeSession = reactive({
+  id: null,
+  sessionNo: '',
+  signCode: '',
+  qrCodeContent: '',
+  status: '',
+  expireTime: '',
+  remainingSeconds: 0
+})
+const sessionCountdown = createSessionCountdown(activeSession)
 
-const sessionCodeDisplay = computed(() => {
-  if (!currentSession.id) {
+const stats = reactive({
+  totalCount: 0,
+  signedCount: 0,
+  leaveCount: 0,
+  forgotCount: 0,
+  absentCount: 0
+})
+
+const hasSession = computed(() => Boolean(activeSession.id))
+const isSessionActive = computed(() => activeSession.status === 'active')
+const isSessionCodeVisible = computed(() => isSessionActive.value && (activeSession.remainingSeconds || 0) > 0)
+const visibleSignCode = computed(() => (isSessionCodeVisible.value ? (activeSession.signCode || '------') : '------'))
+const sessionStatusLabels = {
+  active: '进行中',
+  expired: '已过期',
+  cancelled: '已作废',
+  idle: '未开始'
+}
+const sessionStatusTypes = {
+  active: 'success',
+  expired: 'warning',
+  cancelled: 'info',
+  idle: 'info'
+}
+const sessionStatusLabel = computed(() => (hasSession.value ? (activeSession.status || 'idle') : 'idle'))
+const sessionStatusText = computed(() => sessionStatusLabels[sessionStatusLabel.value] || sessionStatusLabels.idle)
+const remainingText = computed(() => {
+  if (!hasSession.value) {
     return '-'
   }
-  if (currentSession.status === 'pending') {
-    return '待开始'
+  if (isSessionActive.value) {
+    return `${Math.max(activeSession.remainingSeconds || 0, 0)} 秒`
   }
-  if (currentSession.status === 'closed') {
-    return '已关闭'
+  return '0 秒'
+})
+const sessionHint = computed(() => {
+  if (!hasSession.value) {
+    return '点击生成签到码开始一个 60 秒签到会话。'
   }
-  if (currentSession.codeReady && currentSession.sessionCode) {
-    return currentSession.sessionCode
+  if (activeSession.status === 'expired') {
+    return '本次会话已自动结束，签到码只在有效签到时段内显示。'
   }
-  return '生成中'
+  if (activeSession.status === 'cancelled') {
+    return '本次会话已作废，签到码只在有效签到时段内显示。'
+  }
+  return '会话到期后会自动沉淀当日结果。'
 })
 
-const sessionCodeHint = computed(() => {
-  if (!currentSession.id) {
-    return '当前没有考勤场次'
-  }
-  if (currentSession.status === 'pending') {
-    return '到达签到开始时间后自动生成'
-  }
-  if (currentSession.status === 'closed') {
-    return '签到窗口已结束'
-  }
-  if (currentSession.codeReady && currentSession.codeExpireTime) {
-    return `有效至 ${formatTime(currentSession.codeExpireTime)}`
-  }
-  return '页面会自动刷新当前动态码'
-})
+watch(
+  () => activeSession.qrCodeContent,
+  async (value) => {
+    if (!value) {
+      qrCodeDataUrl.value = ''
+      return
+    }
+    qrCodeDataUrl.value = await QRCode.toDataURL(buildPublicAppUrl(value), {
+      width: 220,
+      margin: 1
+    })
+  },
+  { immediate: true }
+)
 
-const resetTaskForm = () => {
-  Object.assign(taskForm, {
+const loadActiveSession = async () => {
+  const response = await getActiveAttendanceSession({ labId: labId.value })
+  Object.assign(activeSession, {
     id: null,
-    collegeId: userStore.userInfo?.managedCollegeId || undefined,
-    semesterName: '',
-    taskName: '',
-    description: '',
-    startDate: '',
-    endDate: ''
+    sessionNo: '',
+    signCode: '',
+    qrCodeContent: '',
+    status: '',
+    expireTime: '',
+    remainingSeconds: 0,
+    ...(response.data || {})
   })
-  taskDateRange.value = []
-}
-
-const buildTaskQuery = () => ({
-  pageNum: pagination.pageNum,
-  pageSize: pagination.pageSize,
-  collegeId: isSchoolDirector.value ? filters.collegeId : userStore.userInfo?.managedCollegeId,
-  keyword: filters.keyword || undefined
-})
-
-const loadOptions = async () => {
-  if (!canManageTasks.value) {
+  sessionCountdown.restart()
+  if (activeSession.id) {
+    await loadSessionRecords(activeSession.id)
     return
   }
-  const response = await getCollegeOptions()
-  colleges.value = response.data || []
-  if (!isSchoolDirector.value) {
-    filters.collegeId = userStore.userInfo?.managedCollegeId
-  }
+  sessionRecords.value = []
 }
 
-const loadTasks = async () => {
-  if (!canManageTasks.value) {
-    tasks.value = []
-    pagination.total = 0
+const loadSessionRecords = async (sessionId = activeSession.id) => {
+  if (!sessionId) {
+    sessionRecords.value = []
     return
   }
-  taskLoading.value = true
-  try {
-    const response = await getAttendanceTaskPage(buildTaskQuery())
-    tasks.value = response.data?.records || []
-    pagination.total = response.data?.total || 0
-  } finally {
-    taskLoading.value = false
-  }
+  const response = await getAttendanceSessionRecords({ sessionId })
+  sessionRecords.value = response.data?.records || []
 }
 
-const loadCurrentSession = async () => {
-  if (!hasLabScope.value) {
-    Object.assign(currentSession, {
-      id: null,
-      status: null,
-      sessionDate: '',
-      signStartTime: '',
-      signEndTime: '',
-      sessionCode: '',
-      codeReady: false,
-      codeExpireTime: '',
-      codeRemainingSeconds: 0,
-      attendanceRate: 0,
-      records: [],
-      totalCount: 0
-    })
-    return
-  }
-
-  try {
-    const response = await getCurrentLabAttendanceSession()
-    Object.assign(currentSession, {
-      id: null,
-      status: null,
-      sessionDate: '',
-      signStartTime: '',
-      signEndTime: '',
-      sessionCode: '',
-      codeReady: false,
-      codeExpireTime: '',
-      codeRemainingSeconds: 0,
-      attendanceRate: 0,
-      records: [],
-      totalCount: 0,
-      ...(response.data || {})
-    })
-  } catch (error) {
-    Object.assign(currentSession, {
-      id: null,
-      status: null,
-      sessionDate: '',
-      signStartTime: '',
-      signEndTime: '',
-      sessionCode: '',
-      codeReady: false,
-      codeExpireTime: '',
-      codeRemainingSeconds: 0,
-      attendanceRate: 0,
-      records: [],
-      totalCount: 0
-    })
-  }
-}
-
-const startSessionPolling = () => {
-  stopSessionPolling()
-  sessionPollTimer = window.setInterval(() => {
-    loadCurrentSession().catch(() => {})
-  }, SESSION_POLL_INTERVAL_MS)
-}
-
-const stopSessionPolling = () => {
-  if (sessionPollTimer) {
-    window.clearInterval(sessionPollTimer)
-    sessionPollTimer = null
-  }
-}
-
-const loadLeaves = async () => {
-  if (!hasLabScope.value) {
-    leaveRows.value = []
-    leavePagination.total = 0
-    return
-  }
-  leaveLoading.value = true
-  try {
-    const response = await getAttendanceLeavePage({
-      pageNum: leavePagination.pageNum,
-      pageSize: leavePagination.pageSize,
-      leaveStatus: leaveFilters.leaveStatus || undefined,
-      keyword: leaveFilters.keyword || undefined
-    })
-    leaveRows.value = response.data?.records || []
-    leavePagination.total = response.data?.total || 0
-  } finally {
-    leaveLoading.value = false
-  }
+const loadManageList = async () => {
+  const response = await getAttendanceManageList({ labId: labId.value, date: selectedDate.value })
+  attendanceRows.value = response.data?.rows || []
+  Object.assign(stats, response.data?.stat || {
+    totalCount: 0,
+    signedCount: 0,
+    leaveCount: 0,
+    forgotCount: 0,
+    absentCount: 0
+  })
 }
 
 const loadPageData = async () => {
-  await Promise.all([loadOptions(), loadTasks(), loadCurrentSession(), loadLeaves()])
-}
-
-const openTaskDialog = (row) => {
-  resetTaskForm()
-  if (row) {
-    Object.assign(taskForm, {
-      id: row.id,
-      collegeId: row.collegeId,
-      semesterName: row.semesterName,
-      taskName: row.taskName,
-      description: row.description || '',
-      startDate: row.startDate,
-      endDate: row.endDate
-    })
-    taskDateRange.value = [row.startDate, row.endDate]
-  }
-  taskDialogVisible.value = true
-}
-
-const saveTaskAction = async () => {
-  if (!taskForm.collegeId) {
-    ElMessage.warning('请先选择学院')
+  if (!labId.value) {
     return
   }
-  if (!taskForm.semesterName.trim() || !taskForm.taskName.trim()) {
-    ElMessage.warning('学期和任务名称不能为空')
-    return
-  }
-  if (!taskDateRange.value?.length) {
-    ElMessage.warning('请先选择任务日期范围')
-    return
-  }
-
-  savingTask.value = true
-  try {
-    await saveAttendanceTask({
-      ...taskForm,
-      startDate: taskDateRange.value[0],
-      endDate: taskDateRange.value[1]
-    })
-    ElMessage.success('考勤任务已保存')
-    taskDialogVisible.value = false
-    await loadTasks()
-  } finally {
-    savingTask.value = false
-  }
+  await Promise.all([loadActiveSession(), loadManageList()])
 }
 
-const openScheduleDialog = async (row) => {
-  currentTask.value = row
-  const response = await getAttendanceTaskSchedules(row.id)
-  scheduleRows.value = (response.data || []).map((item) => ({
-    id: item.id,
-    weekDay: item.weekDay,
-    signInStart: item.signInStart,
-    signInEnd: item.signInEnd,
-    lateThresholdMinutes: item.lateThresholdMinutes || 15,
-    signCodeLength: item.signCodeLength || 4,
-    codeTtlMinutes: item.codeTtlMinutes || 90,
-    remark: item.remark || ''
-  }))
-  if (!scheduleRows.value.length) {
-    addSchedule()
+const loadLabOptions = async () => {
+  if (!showLabSelector.value) {
+    return
   }
-  scheduleDialogVisible.value = true
-}
-
-const addSchedule = () => {
-  scheduleRows.value.push({
-    weekDay: 1,
-    signInStart: '18:30:00',
-    signInEnd: '21:30:00',
-    lateThresholdMinutes: 15,
-    signCodeLength: 4,
-    codeTtlMinutes: 90,
-    remark: ''
+  const response = await getLabPage({
+    pageNum: 1,
+    pageSize: 500,
+    collegeId: userStore.userInfo?.managedCollegeId
   })
+  labOptions.value = response.data?.records || []
+  if (!selectedLabId.value) {
+    const preferredLabId = userStore.userInfo?.labId || userStore.userInfo?.managedLabId || null
+    selectedLabId.value = labOptions.value.find((item) => item.id === preferredLabId)?.id || labOptions.value[0]?.id || null
+  }
 }
 
-const removeSchedule = (index) => {
-  scheduleRows.value.splice(index, 1)
-}
-
-const saveSchedulesAction = async () => {
-  if (!currentTask.value?.id) {
-    return
-  }
-  if (!scheduleRows.value.length) {
-    ElMessage.warning('至少保留一条排班')
-    return
-  }
-
-  savingSchedules.value = true
+const handleCreateSession = async () => {
+  creatingSession.value = true
   try {
-    await saveAttendanceTaskSchedules(currentTask.value.id, scheduleRows.value)
-    ElMessage.success('排班已保存')
-    scheduleDialogVisible.value = false
-    await loadTasks()
-  } finally {
-    savingSchedules.value = false
-  }
-}
-
-const publishTaskAction = async (row) => {
-  await publishAttendanceTask(row.id)
-  ElMessage.success('考勤任务已发布')
-  await loadTasks()
-}
-
-const openReviewDialog = (row) => {
-  Object.assign(reviewForm, {
-    sessionId: currentSession.id,
-    userId: row.userId,
-    realName: row.realName,
-    studentId: row.studentId,
-    signStatus: row.signStatus === 'makeup_approved' ? 'supplement' : row.signStatus || 'normal',
-    remark: row.remark || '',
-    changedReason: ''
-  })
-  reviewDialogVisible.value = true
-}
-
-const submitReview = async () => {
-  if (!reviewForm.changedReason.trim()) {
-    ElMessage.warning('请先填写修正原因')
-    return
-  }
-
-  savingReview.value = true
-  try {
-    await reviewAttendanceRecord({
-      sessionId: reviewForm.sessionId,
-      userId: reviewForm.userId,
-      signStatus: reviewForm.signStatus,
-      remark: reviewForm.remark || undefined,
-      changedReason: reviewForm.changedReason.trim()
+    const response = await createAttendanceSession({ labId: labId.value })
+    Object.assign(activeSession, {
+      id: null,
+      sessionNo: '',
+      signCode: '',
+      qrCodeContent: '',
+      status: '',
+      expireTime: '',
+      remainingSeconds: 0,
+      ...(response.data || {})
     })
-    ElMessage.success('考勤记录已更新')
-    reviewDialogVisible.value = false
-    await loadCurrentSession()
+    sessionCountdown.restart()
+    await Promise.all([loadSessionRecords(response.data?.id), loadManageList()])
+    ElMessage.success('签到会话已创建')
   } finally {
-    savingReview.value = false
+    creatingSession.value = false
   }
 }
 
-const reviewLeave = async (row, approved) => {
-  let value
-  try {
-    const result = await ElMessageBox.prompt(
-      approved ? '请输入通过意见' : '请输入驳回原因',
-      approved ? '通过请假申请' : '驳回请假申请',
-      {
-        confirmButtonText: approved ? '通过' : '驳回',
-        cancelButtonText: '取消',
-        inputPattern: /.+/,
-        inputErrorMessage: '审核意见不能为空'
-      }
-    )
-    value = result.value
-  } catch (error) {
+const closeSession = async (action, message) => {
+  if (!activeSession.id) {
+    ElMessage.info('当前没有可处理的会话')
     return
   }
-
-  if (approved) {
-    await approveAttendanceLeave(row.id, { reviewComment: value })
-    ElMessage.success('请假申请已通过')
-  } else {
-    await rejectAttendanceLeave(row.id, { reviewComment: value })
-    ElMessage.success('请假申请已驳回')
-  }
-
-  await Promise.all([loadLeaves(), loadCurrentSession()])
-}
-
-const handlePhotoUpload = async ({ file }) => {
-  const formData = new FormData()
-  formData.append('file', file)
-  uploadingPhoto.value = true
+  expiringSession.value = true
   try {
-    await uploadAttendanceSessionPhoto(formData)
-    ElMessage.success('现场照片已上传')
-    await loadCurrentSession()
+    await action({ sessionId: activeSession.id })
+    await loadPageData()
+    ElMessage.success(message)
   } finally {
-    uploadingPhoto.value = false
+    expiringSession.value = false
   }
 }
 
-const handleSearch = () => {
-  pagination.pageNum = 1
-  loadTasks()
+const handleExpireSession = async () => {
+  const confirmed = await ElMessageBox.confirm('作废会话会立即结束签到并沉淀当日结果，是否继续？', '作废会话', {
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).catch(() => false)
+  if (!confirmed) {
+    return
+  }
+  await closeSession(expireAttendanceSession, '会话已作废并归档')
 }
 
-const handlePageChange = (page) => {
-  pagination.pageNum = page
-  loadTasks()
+const handleFinalize = async () => {
+  const confirmed = await ElMessageBox.confirm('这会立即结束签到并保存当前结果，是否继续？', '保存结果', {
+    confirmButtonText: '确认',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).catch(() => false)
+  if (!confirmed) {
+    return
+  }
+  await closeSession(finalizeAttendanceSession, '结果已保存并归档')
 }
 
-const handleLeaveSearch = () => {
-  leavePagination.pageNum = 1
-  loadLeaves()
+const handleTag = async (row, tagType) => {
+  const title = tagType === 'leave' ? '标记请假' : '标记忘记签到'
+  const result = await ElMessageBox.prompt('可填写备注，直接确认则留空。', title, {
+    confirmButtonText: '保存',
+    cancelButtonText: '取消',
+    inputValue: row.reason || ''
+  }).catch(() => null)
+  if (!result) {
+    return
+  }
+  await tagAttendanceManage({
+    attendanceId: row.attendanceId,
+    tagType,
+    reason: result.value || ''
+  })
+  ElMessage.success('标签已保存')
+  await loadManageList()
 }
 
-const handleLeavePageChange = (page) => {
-  leavePagination.pageNum = page
-  loadLeaves()
+const canTagRow = (row) => {
+  const status = Number(row?.status)
+  return status === 3 || status === 4 || row?.tagType === 'leave' || row?.tagType === 'forgot'
 }
 
-const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
-const formatTime = (value) => (value ? dayjs(value).format('HH:mm') : '-')
+const handleExport = async () => {
+  const response = await exportAttendanceManage({
+    labId: labId.value,
+    startDate: selectedDate.value,
+    endDate: selectedDate.value
+  })
+  const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `attendance-${selectedDate.value}.xlsx`
+  link.click()
+  window.URL.revokeObjectURL(url)
+}
+
+const signMethodLabel = (value) => ({ code: '签到码', qr: '二维码' }[value] || '-')
+const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-')
 
 onMounted(() => {
-  resetTaskForm()
-  loadPageData()
-  startSessionPolling()
+  loadLabOptions().then(loadPageData)
 })
 
 onUnmounted(() => {
-  stopSessionPolling()
+  sessionCountdown.stop()
 })
 </script>
 
 <style scoped>
-.two-column-form {
+.panel-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0 16px;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 16px;
 }
 
-.session-meta {
+.session-card {
+  padding: 20px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.92);
+}
+
+.qr-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(240, 249, 255, 0.96));
+}
+
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.panel-eyebrow,
+.qr-tip,
+.summary-item span,
+.muted-text {
+  color: #64748b;
+}
+
+.panel-eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card-head h3 {
+  margin: 0;
+  font-size: 22px;
+  color: #0f172a;
+}
+
+.session-code {
+  min-width: 140px;
+  padding: 10px 14px;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.08);
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-align: center;
+  color: #0f172a;
+}
+
+.qr-wrap {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  place-items: center;
   gap: 14px;
-  margin-bottom: 16px;
+  margin-top: 22px;
+}
+
+.qr-image,
+.qr-placeholder {
+  width: 220px;
+  height: 220px;
+  border-radius: 24px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  background: #fff;
+}
+
+.qr-placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 42px;
+  font-weight: 800;
+  color: #94a3b8;
+}
+
+.summary-grid {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .summary-item {
   padding: 14px 16px;
-  border-radius: 16px;
+  border-radius: 18px;
   background: rgba(248, 250, 252, 0.92);
   display: grid;
-  gap: 6px;
+  gap: 8px;
 }
 
-.summary-item span,
-.summary-item small {
-  color: #64748b;
-}
-
-.schedule-toolbar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.schedule-title {
-  font-size: 15px;
-  font-weight: 600;
+.summary-item strong {
   color: #0f172a;
 }
 
-.photo-upload {
-  margin-bottom: 16px;
-}
-
-.mt-16 {
-  margin-top: 16px;
-}
-
-@media (max-width: 768px) {
-  .two-column-form,
-  .session-meta {
+@media (max-width: 960px) {
+  .panel-grid {
     grid-template-columns: 1fr;
   }
 
-  .schedule-toolbar {
-    align-items: flex-start;
-    gap: 12px;
-    flex-direction: column;
+  .summary-grid {
+    grid-template-columns: 1fr;
   }
 }
 </style>

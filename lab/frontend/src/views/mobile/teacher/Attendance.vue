@@ -3,280 +3,212 @@
     <section class="hero-card">
       <div>
         <p class="eyebrow">Teacher Attendance</p>
-        <h1>{{ session.id ? '今日考勤场次' : '今日暂无场次' }}</h1>
-        <p>{{ sessionHint }}</p>
+        <h1>{{ isSessionActive ? '当前签到会话' : hasSession ? '最近一次签到会话' : '教师考勤查看' }}</h1>
+        <p>{{ isSessionActive ? '可查看当前动态签到状态和当日归档结果。' : hasSession ? '会话已结束，签到码和记录仍保留展示。' : '当前没有进行中的签到会话。' }}</p>
       </div>
-      <button class="refresh-btn" type="button" :disabled="loading" @click="loadPageData">刷新</button>
+      <button class="refresh-btn" type="button" @click="loadPageData">刷新</button>
     </section>
 
-    <section class="metric-grid">
-      <article v-for="card in summaryCards" :key="card.label" class="metric-card">
-        <span>{{ card.label }}</span>
-        <strong>{{ card.value }}</strong>
-        <small>{{ card.tip }}</small>
-      </article>
+    <section v-if="!labId" class="empty-card">
+      <el-empty description="当前账号没有绑定实验室" :image-size="86" />
     </section>
 
-    <section class="panel-card">
-      <header class="panel-head">
-        <h2>当前场次</h2>
-        <span class="status-chip" :class="sessionStatusClass">{{ sessionStatusLabel(session.status) }}</span>
-      </header>
+    <template v-else>
+      <section class="action-card">
+        <el-date-picker v-model="selectedDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" @change="loadManageList" />
+        <el-button type="success" plain class="top-gap" @click="handleExport">导出名单</el-button>
+      </section>
 
-      <el-empty v-if="!session.id" description="当前实验室今天没有可查看的考勤场次" :image-size="84" />
+      <section class="metric-grid">
+        <article v-for="card in summaryCards" :key="card.label" class="metric-card">
+          <span>{{ card.label }}</span>
+          <strong>{{ card.value }}</strong>
+          <small>{{ card.tip }}</small>
+        </article>
+      </section>
 
-      <template v-else>
-        <div class="meta-grid">
-          <article class="info-card">
-            <span>日期</span>
-            <strong>{{ session.sessionDate || '-' }}</strong>
-          </article>
-          <article class="info-card">
-            <span>签到窗口</span>
-            <strong>{{ formatTime(session.signStartTime) }} - {{ formatTime(session.signEndTime) }}</strong>
-          </article>
-          <article class="info-card">
-            <span>动态码</span>
-            <strong>{{ sessionCodeDisplay }}</strong>
-          </article>
-          <article class="info-card">
-            <span>出勤率</span>
-            <strong>{{ `${session.attendanceRate ?? 0}%` }}</strong>
-          </article>
-        </div>
-        <p class="panel-tip">{{ sessionCodeHint }}</p>
-
-        <div v-if="session.records?.length" class="record-list">
-          <article v-for="item in session.records" :key="item.userId || item.studentId" class="record-card">
+      <section class="panel-card">
+        <header class="panel-head">
+          <h2>当前会话</h2>
+          <span class="status-chip">{{ sessionStatusText }}</span>
+        </header>
+        <div class="record-list">
+          <article class="record-card">
             <div>
-              <strong>{{ item.realName || '-' }}</strong>
-              <p>{{ item.studentId || '-' }} · {{ item.memberRole || 'member' }}</p>
-              <small>{{ attendanceStatusLabel(item.signStatus) }} · {{ formatDateTime(item.signTime) }}</small>
+              <strong>{{ activeSession.sessionNo || '暂无最近会话' }}</strong>
+              <p>签到码：{{ visibleSignCode }}</p>
+              <small>结束时间：{{ formatDateTime(activeSession.expireTime) }}</small>
             </div>
             <div class="record-side">
-              <span class="status-chip light">{{ attendanceStatusLabel(item.signStatus) }}</span>
-              <small>{{ leaveStatusLabel(item.leaveRequest?.leaveStatus) }}</small>
+              <span class="status-chip light">{{ remainingText }}</span>
             </div>
           </article>
         </div>
-        <el-empty v-else description="暂无成员签到记录" :image-size="72" />
-      </template>
-    </section>
+      </section>
 
-    <section class="panel-card">
-      <header class="panel-head">
-        <h2>请假申请</h2>
-        <span>{{ leaveRows.length }} 条</span>
-      </header>
+      <section class="panel-card">
+        <header class="panel-head">
+          <h2>实时签到记录</h2>
+          <span>{{ sessionRecords.length }} 条</span>
+        </header>
+        <div v-if="sessionRecords.length" class="record-list">
+          <article v-for="item in sessionRecords" :key="item.id || item.userId" class="record-card">
+            <div>
+              <strong>{{ item.realName || '-' }}</strong>
+              <p>{{ item.studentId || '-' }}</p>
+              <small>{{ formatDateTime(item.signTime) }}</small>
+            </div>
+            <div class="record-side">
+              <span class="status-chip light">{{ signMethodLabel(item.signMethod) }}</span>
+            </div>
+          </article>
+        </div>
+        <el-empty v-else description="暂无实时签到记录" :image-size="72" />
+      </section>
 
-      <div v-if="leaveRows.length" class="record-list">
-        <article v-for="row in leaveRows" :key="row.id" class="record-card">
-          <div>
-            <strong>{{ row.realName || '-' }}</strong>
-            <p>{{ row.studentId || '-' }} · {{ row.sessionDate || '-' }}</p>
-            <small>{{ row.leaveReason || '未填写请假原因' }}</small>
-          </div>
-          <div class="record-side">
-            <span class="status-chip light">{{ leaveStatusLabel(row.leaveStatus) }}</span>
-            <small>{{ row.reviewComment || '待处理' }}</small>
-          </div>
-        </article>
-      </div>
-      <el-empty v-else description="暂无请假申请" :image-size="72" />
-    </section>
+      <section class="panel-card">
+        <header class="panel-head">
+          <h2>当日考勤名单</h2>
+          <span>{{ attendanceRows.length }} 条</span>
+        </header>
+        <div v-if="attendanceRows.length" class="record-list">
+          <article v-for="row in attendanceRows" :key="row.attendanceId || row.userId" class="record-card">
+            <div>
+              <strong>{{ row.realName || '-' }}</strong>
+              <p>{{ row.studentId || '-' }} · {{ attendanceDisplayLabel(row) }}</p>
+              <small>{{ row.tagLabel || row.reason || '无标签' }}</small>
+            </div>
+            <div class="record-side">
+              <span class="status-chip light">{{ formatDateTime(row.checkinTime) || '-' }}</span>
+            </div>
+          </article>
+        </div>
+        <el-empty v-else description="所选日期暂无考勤记录" :image-size="72" />
+      </section>
+    </template>
   </div>
 </template>
 
 <script setup>
 import dayjs from 'dayjs'
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
-import { getAttendanceLeavePage, getCurrentLabAttendanceSession } from '@/api/attendanceWorkflow'
+import { exportAttendanceManage, getActiveAttendanceSession, getAttendanceManageList, getAttendanceSessionRecords } from '@/api/attendance'
+import { useUserStore } from '@/stores/user'
+import { createSessionCountdown } from '@/utils/attendanceSession'
 
-const loading = ref(false)
-const leaveRows = ref([])
-const session = reactive({
+const userStore = useUserStore()
+const labId = computed(() => userStore.userInfo?.managedLabId || userStore.userInfo?.labId || null)
+const selectedDate = ref(dayjs().format('YYYY-MM-DD'))
+const sessionRecords = ref([])
+const attendanceRows = ref([])
+
+const activeSession = reactive({
   id: null,
+  sessionNo: '',
+  signCode: '',
   status: '',
-  sessionDate: '',
-  signStartTime: '',
-  signEndTime: '',
-  sessionCode: '',
-  codeReady: false,
-  codeRemainingSeconds: 0,
-  attendanceRate: 0,
-  records: []
+  expireTime: '',
+  remainingSeconds: 0
 })
+const sessionCountdown = createSessionCountdown(activeSession)
 
-let pollTimer = null
+const stats = reactive({
+  totalCount: 0,
+  signedCount: 0,
+  leaveCount: 0,
+  forgotCount: 0,
+  absentCount: 0
+})
 
 const summaryCards = computed(() => [
-  {
-    label: '场次状态',
-    value: sessionStatusLabel(session.status),
-    tip: '当前实验室考勤阶段'
-  },
-  {
-    label: '签到码',
-    value: sessionCodeDisplay.value,
-    tip: '动态签到码只在进行中场次显示'
-  },
-  {
-    label: '签到记录',
-    value: session.records?.length || 0,
-    tip: '当前场次成员签到记录数'
-  },
-  {
-    label: '请假申请',
-    value: leaveRows.value.length,
-    tip: '可查看的请假申请数量'
-  }
+  { label: '总人数', value: stats.totalCount, tip: '当前实验室成员数' },
+  { label: '已签到', value: stats.signedCount, tip: '签到成功成员' },
+  { label: '缺勤', value: stats.absentCount, tip: '未签到成员' },
+  { label: '请假', value: stats.leaveCount, tip: '已标记请假' },
+  { label: '忘记签到', value: stats.forgotCount, tip: '已标记忘记签到' }
 ])
-
-const sessionCodeDisplay = computed(() => {
-  if (!session.id) {
+const hasSession = computed(() => Boolean(activeSession.id))
+const isSessionActive = computed(() => activeSession.status === 'active')
+const visibleSignCode = computed(() => (isSessionActive.value && (activeSession.remainingSeconds || 0) > 0 ? (activeSession.signCode || '------') : '------'))
+const sessionStatusText = computed(() => ({
+  active: '进行中',
+  expired: '已过期',
+  cancelled: '已作废'
+}[activeSession.status] || '未开始'))
+const remainingText = computed(() => {
+  if (!hasSession.value) {
     return '-'
   }
-  if (session.status === 'pending') {
-    return '待开始'
+  if (isSessionActive.value) {
+    return `${activeSession.remainingSeconds || 0} 秒`
   }
-  if (session.status === 'closed') {
-    return '已结束'
-  }
-  return session.sessionCode || '生成中'
+  return '0 秒'
 })
 
-const sessionCodeHint = computed(() => {
-  if (!session.id) {
-    return '发布考勤任务并到达排班时间后，系统会自动生成签到动态码。'
+const loadActiveSession = async () => {
+  const response = await getActiveAttendanceSession({ labId: labId.value })
+  Object.assign(activeSession, {
+    id: null,
+    sessionNo: '',
+    signCode: '',
+    status: '',
+    expireTime: '',
+    remainingSeconds: 0,
+    ...(response.data || {})
+  })
+  sessionCountdown.restart()
+  if (!activeSession.id) {
+    sessionRecords.value = []
+    return
   }
-  if (session.status === 'pending') {
-    return '签到窗口尚未开始。'
-  }
-  if (session.status === 'closed') {
-    return '本场签到已经结束。'
-  }
-  if (!session.codeReady) {
-    return '动态签到码生成中，请稍后刷新。'
-  }
-  if (session.codeRemainingSeconds > 0) {
-    return `动态码剩余 ${Math.max(1, Math.ceil(session.codeRemainingSeconds / 60))} 分钟有效。`
-  }
-  return '动态签到码即将刷新。'
-})
-
-const sessionHint = computed(() => {
-  if (!session.id) {
-    return '老师可以在手机上直接查看当前签到场次、动态码和学生签到状态。'
-  }
-  return `${sessionStatusLabel(session.status)}，签到时间 ${formatTime(session.signStartTime)} - ${formatTime(session.signEndTime)}。`
-})
-
-const sessionStatusClass = computed(() => {
-  if (session.status === 'active') {
-    return 'success'
-  }
-  if (session.status === 'closed') {
-    return 'muted'
-  }
-  return 'progress'
-})
-
-const loadCurrentSession = async () => {
-  try {
-    const response = await getCurrentLabAttendanceSession()
-    Object.assign(session, {
-      id: null,
-      status: '',
-      sessionDate: '',
-      signStartTime: '',
-      signEndTime: '',
-      sessionCode: '',
-      codeReady: false,
-      codeRemainingSeconds: 0,
-      attendanceRate: 0,
-      records: [],
-      ...(response.data || {})
-    })
-  } catch (error) {
-    Object.assign(session, {
-      id: null,
-      status: '',
-      sessionDate: '',
-      signStartTime: '',
-      signEndTime: '',
-      sessionCode: '',
-      codeReady: false,
-      codeRemainingSeconds: 0,
-      attendanceRate: 0,
-      records: []
-    })
-  }
+  const recordsResponse = await getAttendanceSessionRecords({ sessionId: activeSession.id })
+  sessionRecords.value = recordsResponse.data?.records || []
 }
 
-const loadLeaves = async () => {
-  try {
-    const response = await getAttendanceLeavePage({ pageNum: 1, pageSize: 20 })
-    leaveRows.value = response.data?.records || []
-  } catch (error) {
-    leaveRows.value = []
-  }
+const loadManageList = async () => {
+  const response = await getAttendanceManageList({ labId: labId.value, date: selectedDate.value })
+  attendanceRows.value = response.data?.rows || []
+  Object.assign(stats, response.data?.stat || {
+    totalCount: 0,
+    signedCount: 0,
+    leaveCount: 0,
+    forgotCount: 0,
+    absentCount: 0
+  })
 }
 
 const loadPageData = async () => {
-  loading.value = true
-  try {
-    await Promise.all([loadCurrentSession(), loadLeaves()])
-  } finally {
-    loading.value = false
+  if (!labId.value) {
+    return
   }
+  await Promise.all([loadActiveSession(), loadManageList()])
 }
 
-const startPolling = () => {
-  stopPolling()
-  pollTimer = window.setInterval(() => {
-    loadCurrentSession().catch(() => {})
-  }, 15000)
+const handleExport = async () => {
+  const response = await exportAttendanceManage({
+    labId: labId.value,
+    startDate: selectedDate.value,
+    endDate: selectedDate.value
+  })
+  const blob = new Blob([response.data], { type: response.headers['content-type'] || 'application/octet-stream' })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `attendance-${selectedDate.value}.xlsx`
+  link.click()
+  window.URL.revokeObjectURL(url)
 }
 
-const stopPolling = () => {
-  if (pollTimer) {
-    window.clearInterval(pollTimer)
-    pollTimer = null
-  }
-}
-
-const sessionStatusLabel = (value) => ({
-  pending: '未开始',
-  active: '进行中',
-  closed: '已结束'
-}[value] || '暂无')
-
-const attendanceStatusLabel = (value) => ({
-  normal: '正常',
-  late: '迟到',
-  leave: '请假',
-  absent: '缺勤',
-  makeup_pending: '补签待审',
-  makeup_approved: '补签通过',
-  makeup_rejected: '补签驳回'
-}[value] || '待处理')
-
-const leaveStatusLabel = (value) => ({
-  PENDING: '待审批',
-  APPROVED: '已通过',
-  REJECTED: '已驳回'
-}[value] || '无请假')
-
-const formatTime = (value) => (value ? dayjs(value).format('HH:mm') : '-')
-const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
+const signMethodLabel = (value) => ({ code: '签到码', qr: '二维码' }[value] || '-')
+const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '')
+const attendanceDisplayLabel = (row) => row?.tagLabel || row?.statusLabel || '未生成'
 
 onMounted(() => {
   loadPageData()
-  startPolling()
 })
 
 onUnmounted(() => {
-  stopPolling()
+  sessionCountdown.stop()
 })
 </script>
 
@@ -287,12 +219,13 @@ onUnmounted(() => {
 }
 
 .hero-card,
+.action-card,
 .metric-card,
 .panel-card,
-.info-card,
-.record-card {
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.94);
+.record-card,
+.empty-card {
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(226, 232, 240, 0.92);
 }
 
@@ -310,138 +243,82 @@ onUnmounted(() => {
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  opacity: 0.82;
 }
 
-.hero-card h1 {
-  margin: 0 0 8px;
-  font-size: 24px;
+.hero-card h1,
+.panel-head h2 {
+  margin: 0;
 }
 
 .hero-card p {
-  margin: 0;
-  line-height: 1.6;
   color: rgba(226, 232, 240, 0.9);
 }
 
 .refresh-btn {
   height: fit-content;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.12);
-  color: #f8fafc;
+  color: #fff;
   border-radius: 14px;
   padding: 10px 14px;
 }
 
-.metric-grid,
-.meta-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
-}
-
-.metric-card,
-.info-card {
-  padding: 14px;
-  display: grid;
-  gap: 6px;
-}
-
-.metric-card span,
-.metric-card small,
-.info-card span,
-.record-card p,
-.record-card small,
-.panel-tip {
-  color: #64748b;
-}
-
-.metric-card strong,
-.info-card strong,
-.record-card strong,
-.panel-head h2 {
-  color: #0f172a;
-}
-
-.metric-card strong {
-  font-size: 20px;
-}
-
+.action-card,
 .panel-card {
   padding: 14px;
 }
 
-.panel-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 12px;
-}
-
-.panel-head h2 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.panel-tip {
-  margin: 12px 0 0;
-  line-height: 1.6;
-}
-
-.record-list {
-  display: grid;
-  gap: 10px;
+.top-gap {
   margin-top: 12px;
 }
 
+.metric-grid,
+.record-list {
+  display: grid;
+  gap: 10px;
+}
+
+.metric-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.metric-card,
 .record-card {
   padding: 14px;
+}
+
+.metric-card span,
+.metric-card small,
+.record-card p,
+.record-card small {
+  color: #64748b;
+}
+
+.metric-card strong,
+.record-card strong {
+  color: #0f172a;
+}
+
+.panel-head,
+.record-card {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-}
-
-.record-card p,
-.record-card small {
-  margin: 6px 0 0;
+  align-items: flex-start;
 }
 
 .record-side {
-  min-width: 94px;
   display: grid;
   justify-items: end;
-  align-content: start;
-  gap: 6px;
-  text-align: right;
 }
 
 .status-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 28px;
-  padding: 0 12px;
+  padding: 6px 10px;
   border-radius: 999px;
+  background: rgba(219, 234, 254, 0.9);
+  color: #2563eb;
   font-size: 12px;
   font-weight: 700;
-  background: rgba(217, 119, 6, 0.14);
-  color: #b45309;
-}
-
-.status-chip.success {
-  background: rgba(34, 197, 94, 0.14);
-  color: #15803d;
-}
-
-.status-chip.progress {
-  background: rgba(245, 158, 11, 0.16);
-  color: #b45309;
-}
-
-.status-chip.muted {
-  background: rgba(148, 163, 184, 0.16);
-  color: #475569;
 }
 
 .status-chip.light {
@@ -450,19 +327,8 @@ onUnmounted(() => {
 }
 
 @media (max-width: 480px) {
-  .metric-grid,
-  .meta-grid {
+  .metric-grid {
     grid-template-columns: 1fr;
-  }
-
-  .record-card {
-    grid-template-columns: 1fr;
-    display: grid;
-  }
-
-  .record-side {
-    justify-items: start;
-    text-align: left;
   }
 }
 </style>

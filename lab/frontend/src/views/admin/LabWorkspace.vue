@@ -30,7 +30,7 @@
       <el-alert
         :closable="false"
         :type="workspaceEditable ? 'success' : 'info'"
-        :title="workspaceEditable ? '当前为实验室管理员模式，可维护考勤、资料和退组申请。' : '当前为只读模式，可查看并导出对应实验室数据。'"
+        :title="workspaceEditable ? '当前为实验室管理模式，可维护资料空间并处理退组申请。' : '当前为只读模式，可查看并导出实验室资料。'"
       />
     </section>
 
@@ -44,7 +44,7 @@
           <p class="eyebrow">实验室工作台</p>
           <h1>{{ overview.lab.labName }}</h1>
           <p class="hero-subtitle">
-            围绕晚自习考勤、资料空间和成员流转，统一查看当前实验室的数据留痕。
+            聚焦资料空间与成员流转，统一查看当前实验室的文件沉淀和退出申请处理情况。
           </p>
         </div>
         <div class="hero-side">
@@ -62,73 +62,6 @@
       </section>
 
       <el-tabs v-model="activeTab" class="workspace-tabs">
-        <el-tab-pane label="考勤看板" name="attendance">
-          <TablePageCard
-            class="panel-card"
-            title="当日考勤登记"
-            subtitle="考勤看板"
-            :count-label="`${attendanceRows.length} 条`"
-          >
-            <template #header-extra>
-              <div class="toolbar-actions compact">
-                <el-date-picker
-                  v-model="attendanceDate"
-                  type="date"
-                  value-format="YYYY-MM-DD"
-                  placeholder="选择日期"
-                  @change="fetchAttendance"
-                />
-                <el-button type="primary" plain @click="exportAttendance">导出名单</el-button>
-                <el-button @click="loadAttendanceSummary">刷新统计</el-button>
-              </div>
-            </template>
-
-            <div class="summary-tags">
-              <el-tag effect="plain">出勤 {{ attendanceSummary.presentCount ?? 0 }}</el-tag>
-              <el-tag type="warning" effect="plain">迟到 {{ attendanceSummary.lateCount ?? 0 }}</el-tag>
-              <el-tag type="danger" effect="plain">缺勤 {{ attendanceSummary.absentCount ?? 0 }}</el-tag>
-            </div>
-
-            <el-table :data="attendanceRows" border stripe>
-              <el-table-column prop="realName" label="姓名" min-width="110" />
-              <el-table-column prop="studentId" label="学号" min-width="120" />
-              <el-table-column prop="major" label="专业" min-width="160" />
-              <el-table-column label="考勤状态" min-width="160">
-                <template #default="{ row }">
-                  <template v-if="workspaceEditable">
-                    <el-select v-model="row.draftStatus" placeholder="选择状态">
-                      <el-option v-for="item in attendanceStatusOptions" :key="item.value" :label="item.label" :value="item.value" />
-                    </el-select>
-                  </template>
-                  <template v-else>
-                    <StatusTag :value="row.draftStatus" :label-map="attendanceStatusLabels" :type-map="attendanceStatusTypes" />
-                  </template>
-                </template>
-              </el-table-column>
-              <el-table-column label="备注 / 原因" min-width="220">
-                <template #default="{ row }">
-                  <el-input
-                    v-if="workspaceEditable"
-                    v-model="row.draftReason"
-                    maxlength="120"
-                    show-word-limit
-                    placeholder="请填写备注或异常原因"
-                  />
-                  <span v-else>{{ row.draftReason || '-' }}</span>
-                </template>
-              </el-table-column>
-              <el-table-column label="最近确认时间" min-width="170">
-                <template #default="{ row }">{{ formatDateTime(row.confirmTime) }}</template>
-              </el-table-column>
-              <el-table-column v-if="workspaceEditable" label="操作" width="110" fixed="right">
-                <template #default="{ row }">
-                  <el-button type="primary" size="small" @click="saveAttendance(row)">保存</el-button>
-                </template>
-              </el-table-column>
-            </el-table>
-          </TablePageCard>
-        </el-tab-pane>
-
         <el-tab-pane label="资料空间" name="space">
           <div class="content-grid space-grid">
             <TablePageCard
@@ -326,10 +259,7 @@ import { getCollegeOptions } from '@/api/colleges'
 import { getLabPage } from '@/api/lab'
 import {
   auditExitApplication,
-  confirmAttendance,
   createSpaceFolder,
-  getAttendanceSummary,
-  getDailyAttendance,
   getLabExitApplications,
   getLabSpaceOverview,
   getSpaceFiles,
@@ -346,11 +276,8 @@ import { downloadCsv } from '@/utils/export'
 const route = useRoute()
 const userStore = useUserStore()
 
-const activeTab = ref('attendance')
-const overview = reactive({ lab: null, attendanceSummary: {}, recentFiles: [] })
-const attendanceSummary = reactive({})
-const attendanceDate = ref(dayjs().format('YYYY-MM-DD'))
-const attendanceRows = ref([])
+const activeTab = ref('space')
+const overview = reactive({ lab: null, memberCount: 0, recentFiles: [] })
 const folderTree = ref([])
 const selectedFolderId = ref(null)
 const files = ref([])
@@ -370,7 +297,11 @@ const exitSearch = reactive({
   status: null
 })
 const exitApplications = ref([])
-const exitPagination = reactive({ current: 1, size: 10, total: 0 })
+const exitPagination = reactive({
+  current: 1,
+  size: 10,
+  total: 0
+})
 
 const folderDialogVisible = ref(false)
 const folderForm = reactive({
@@ -393,23 +324,6 @@ const workspaceEditable = computed(() => isLabManager.value || isSchoolDirector.
 const canSelectCollege = computed(() => isSchoolDirector.value)
 const canSelectLab = computed(() => isSchoolDirector.value || isCollegeManager.value)
 
-const attendanceStatusOptions = [
-  { label: '出勤', value: 1 },
-  { label: '迟到', value: 2 },
-  { label: '请假', value: 3 },
-  { label: '缺勤', value: 4 },
-  { label: '补签', value: 5 },
-  { label: '免考勤', value: 6 }
-]
-const attendanceStatusLabels = Object.fromEntries(attendanceStatusOptions.map((item) => [item.value, item.label]))
-const attendanceStatusTypes = {
-  1: 'success',
-  2: 'warning',
-  3: 'warning',
-  4: 'danger',
-  5: 'success',
-  6: 'success'
-}
 const archiveFlagLabels = {
   0: '未归档',
   1: '已归档'
@@ -459,24 +373,24 @@ const fixedLabName = computed(() => {
   return currentLab?.labName || overview.lab?.labName || ''
 })
 
-const metricCards = computed(() => [
-  { label: '正式成员', value: overview.memberCount || 0, tip: '实验室当前有效成员数' },
-  { label: '出勤人数', value: attendanceSummary.presentCount ?? 0, tip: '当前统计口径下的出勤人数' },
-  { label: '缺勤人数', value: attendanceSummary.absentCount ?? 0, tip: '当前统计口径下的缺勤人数' },
-  { label: '资料文件', value: filePagination.total || 0, tip: '当前实验室资料文件数量' }
-])
-
 const flatFolders = computed(() => {
   const result = []
-  const walk = (nodes) => {
-    ;(nodes || []).forEach((node) => {
+  const walk = (nodes = []) => {
+    nodes.forEach((node) => {
       result.push({ id: node.id, folderName: node.folderName })
-      walk(node.children)
+      walk(node.children || [])
     })
   }
   walk(folderTree.value)
   return result
 })
+
+const metricCards = computed(() => [
+  { label: '正式成员', value: overview.memberCount || 0, tip: '当前实验室有效成员数' },
+  { label: '资料目录', value: flatFolders.value.length, tip: '当前实验室资料目录数量' },
+  { label: '资料文件', value: filePagination.total || 0, tip: '当前实验室资料文件数量' },
+  { label: '退组申请', value: workspaceEditable.value ? exitPagination.total || 0 : 0, tip: '待查看的退组申请记录数' }
+])
 
 const resetFolderForm = () => {
   Object.assign(folderForm, {
@@ -490,16 +404,12 @@ const resetFolderForm = () => {
 const initializeScope = () => {
   if (isSchoolDirector.value) {
     selectedCollegeId.value = selectedCollegeId.value || colleges.value[0]?.id || null
-    if (!selectedLabId.value) {
-      selectedLabId.value = labOptions.value[0]?.id || null
-    }
+    selectedLabId.value = selectedLabId.value || labOptions.value[0]?.id || null
     return
   }
   if (isCollegeManager.value) {
     selectedCollegeId.value = userStore.userInfo?.managedCollegeId || null
-    if (!selectedLabId.value) {
-      selectedLabId.value = labOptions.value[0]?.id || null
-    }
+    selectedLabId.value = selectedLabId.value || labOptions.value[0]?.id || null
     return
   }
   selectedLabId.value = userStore.userInfo?.labId || null
@@ -511,78 +421,34 @@ const loadSelectors = async () => {
     getLabPage({ pageNum: 1, pageSize: 500 })
   ])
   colleges.value = collegeRes.data || []
-  allLabs.value = labRes.data.records || []
+  allLabs.value = labRes.data?.records || []
   initializeScope()
 }
 
 const loadOverview = async () => {
   if (!selectedLabId.value) {
-    Object.assign(overview, { lab: null, memberCount: 0, members: [], attendanceSummary: {}, recentFiles: [] })
+    Object.assign(overview, { lab: null, memberCount: 0, recentFiles: [] })
     return
   }
   const res = await getLabSpaceOverview({ labId: selectedLabId.value })
-  Object.assign(overview, res.data || {})
-}
-
-const loadAttendanceSummary = async () => {
-  if (!selectedLabId.value) {
-    return
-  }
-  const res = await getAttendanceSummary({ labId: selectedLabId.value })
-  Object.assign(attendanceSummary, res.data || {})
-}
-
-const fetchAttendance = async () => {
-  if (!selectedLabId.value) {
-    attendanceRows.value = []
-    return
-  }
-  const res = await getDailyAttendance({ labId: selectedLabId.value, attendanceDate: attendanceDate.value })
-  attendanceRows.value = (res.data || []).map((item) => ({
-    ...item,
-    draftStatus: item.status || 1,
-    draftReason: item.reason || ''
-  }))
-}
-
-const saveAttendance = async (row) => {
-  await confirmAttendance({
-    labId: selectedLabId.value,
-    userId: row.userId,
-    attendanceDate: attendanceDate.value,
-    status: row.draftStatus,
-    reason: row.draftReason
-  })
-  ElMessage.success('考勤记录已保存')
-  await Promise.all([fetchAttendance(), loadAttendanceSummary()])
-}
-
-const exportAttendance = () => {
-  downloadCsv(
-    `attendance-${selectedLabId.value}-${attendanceDate.value}.csv`,
-    [
-      ['姓名', '学号', '专业', '状态', '备注'],
-      ...attendanceRows.value.map((item) => [
-        item.realName || '',
-        item.studentId || '',
-        item.major || '',
-        attendanceStatusText(item.draftStatus),
-        item.draftReason || ''
-      ])
-    ]
-  )
-  ElMessage.success('考勤名单已导出')
+  Object.assign(overview, res.data || { lab: null, memberCount: 0, recentFiles: [] })
 }
 
 const loadFolders = async () => {
   if (!selectedLabId.value) {
     folderTree.value = []
+    selectedFolderId.value = null
     return
   }
   const res = await getSpaceFolders({ labId: selectedLabId.value })
   folderTree.value = res.data || []
-  if (!selectedFolderId.value && folderTree.value.length) {
-    selectedFolderId.value = folderTree.value[0].id
+  if (!folderTree.value.length) {
+    selectedFolderId.value = null
+    return
+  }
+  const exists = flatFolders.value.some((item) => item.id === selectedFolderId.value)
+  if (!exists) {
+    selectedFolderId.value = folderTree.value[0]?.id || null
   }
 }
 
@@ -602,8 +468,8 @@ const loadFiles = async () => {
       archiveFlag: fileFilters.archiveFlag === null ? undefined : fileFilters.archiveFlag,
       keyword: fileFilters.keyword || undefined
     })
-    files.value = res.data.records || []
-    filePagination.total = res.data.total || 0
+    files.value = res.data?.records || []
+    filePagination.total = res.data?.total || 0
   } finally {
     fileLoading.value = false
   }
@@ -624,8 +490,8 @@ const exportFiles = async () => {
   downloadCsv(
     `lab-files-${selectedLabId.value}-${dayjs().format('YYYYMMDD-HHmmss')}.csv`,
     [
-      ['文件名', '目录', '上传人', '大小', '上传时间', '归档'],
-      ...(res.data.records || []).map((item) => [
+      ['文件名', '目录', '上传人', '大小', '上传时间', '归档状态'],
+      ...(res.data?.records || []).map((item) => [
         item.fileName || '',
         item.folderName || '',
         item.uploadUserName || '',
@@ -655,7 +521,7 @@ const openFolderDialog = (folder) => {
     Object.assign(folderForm, {
       id: folder.id,
       folderName: folder.folderName,
-      category: folder.category,
+      category: folder.category || '',
       parentId: folder.parentId || 0
     })
   } else if (selectedFolderId.value) {
@@ -680,9 +546,10 @@ const saveFolder = async () => {
   } else {
     await createSpaceFolder(payload)
   }
-  ElMessage.success('目录已保存')
   folderDialogVisible.value = false
+  ElMessage.success('目录已保存')
   await loadFolders()
+  await loadFiles()
 }
 
 const handleUpload = async ({ file }) => {
@@ -703,17 +570,22 @@ const handleUpload = async ({ file }) => {
 const toggleArchive = async (row) => {
   await updateSpaceFileArchive(row.id, { archiveFlag: row.archiveFlag === 1 ? 0 : 1 })
   ElMessage.success(row.archiveFlag === 1 ? '已取消归档' : '已归档')
-  loadFiles()
+  await loadFiles()
 }
 
 const openFile = (row) => {
-  window.open(row.fileUrl, '_blank')
+  if (row?.fileUrl) {
+    window.open(row.fileUrl, '_blank')
+  }
 }
 
-const fetchExitApplications = async () => {
-  if (!workspaceEditable.value) {
+const fetchExitApplications = async (page = exitPagination.current) => {
+  if (!workspaceEditable.value || !selectedLabId.value) {
+    exitApplications.value = []
+    exitPagination.total = 0
     return
   }
+  exitPagination.current = page
   const res = await getLabExitApplications({
     pageNum: exitPagination.current,
     pageSize: exitPagination.size,
@@ -721,16 +593,15 @@ const fetchExitApplications = async () => {
     realName: exitSearch.realName || undefined,
     status: exitSearch.status
   })
-  exitApplications.value = (res.data.records || []).map((item) => ({
+  exitApplications.value = (res.data?.records || []).map((item) => ({
     ...item,
     auditRemarkDraft: item.auditRemark || ''
   }))
-  exitPagination.total = res.data.total || 0
+  exitPagination.total = res.data?.total || 0
 }
 
 const handleExitSearch = () => {
-  exitPagination.current = 1
-  fetchExitApplications()
+  fetchExitApplications(1)
 }
 
 const auditExit = async (row, status) => {
@@ -740,7 +611,7 @@ const auditExit = async (row, status) => {
     auditRemark: row.auditRemarkDraft
   })
   ElMessage.success(status === 1 ? '已同意退组申请' : '已驳回退组申请')
-  await Promise.all([fetchExitApplications(), loadOverview(), loadAttendanceSummary()])
+  await Promise.all([fetchExitApplications(exitPagination.current), loadOverview()])
 }
 
 const handleCollegeChange = () => {
@@ -755,27 +626,27 @@ const handleLabChange = async () => {
   await reloadWorkspace()
 }
 
+const resetWorkspaceData = () => {
+  Object.assign(overview, { lab: null, memberCount: 0, recentFiles: [] })
+  folderTree.value = []
+  files.value = []
+  exitApplications.value = []
+  filePagination.total = 0
+  exitPagination.total = 0
+  selectedFolderId.value = null
+}
+
 const reloadWorkspace = async () => {
   if (!selectedLabId.value) {
-    overview.lab = null
-    attendanceRows.value = []
-    folderTree.value = []
-    files.value = []
-    Object.keys(attendanceSummary).forEach((key) => delete attendanceSummary[key])
+    resetWorkspaceData()
     return
   }
-
-  const tasks = [loadOverview(), loadAttendanceSummary(), loadFolders(), fetchAttendance()]
+  const tasks = [loadOverview(), loadFolders()]
   if (workspaceEditable.value) {
-    tasks.push(fetchExitApplications())
+    tasks.push(fetchExitApplications(1))
   }
   await Promise.all(tasks)
   await loadFiles()
-}
-
-const attendanceStatusText = (status) => {
-  const option = attendanceStatusOptions.find((item) => item.value === status)
-  return option?.label || '未登记'
 }
 
 const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
@@ -829,13 +700,6 @@ onMounted(async () => {
   color: rgba(236, 254, 255, 0.9);
 }
 
-.summary-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  margin-bottom: 18px;
-}
-
 .space-grid {
   grid-template-columns: 320px minmax(0, 1fr);
 }
@@ -862,10 +726,6 @@ onMounted(async () => {
 @media (max-width: 960px) {
   .space-grid {
     grid-template-columns: 1fr;
-  }
-
-  .hero-side {
-    justify-items: start;
   }
 }
 </style>

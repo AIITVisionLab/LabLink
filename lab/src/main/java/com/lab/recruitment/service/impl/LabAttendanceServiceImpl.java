@@ -51,7 +51,8 @@ public class LabAttendanceServiceImpl extends ServiceImpl<LabAttendanceMapper, L
 
         QueryWrapper<LabAttendance> attendanceQuery = new QueryWrapper<>();
         attendanceQuery.eq("lab_id", labId)
-                .eq("attendance_date", attendanceDate);
+                .eq("attendance_date", attendanceDate)
+                .eq("deleted", 0);
         List<LabAttendance> attendanceList = this.list(attendanceQuery);
         Map<Long, LabAttendance> attendanceMap = new HashMap<>();
         for (LabAttendance attendance : attendanceList) {
@@ -100,7 +101,8 @@ public class LabAttendanceServiceImpl extends ServiceImpl<LabAttendanceMapper, L
         QueryWrapper<LabAttendance> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("lab_id", labId)
                 .eq("user_id", userId)
-                .eq("attendance_date", attendanceDate);
+                .eq("attendance_date", attendanceDate)
+                .eq("deleted", 0);
 
         LabAttendance attendance = this.getOne(queryWrapper);
         if (attendance == null) {
@@ -122,6 +124,7 @@ public class LabAttendanceServiceImpl extends ServiceImpl<LabAttendanceMapper, L
         Page<LabAttendance> page = new Page<>(pageNum, pageSize);
         QueryWrapper<LabAttendance> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("user_id", userId)
+                .eq("deleted", 0)
                 .orderByDesc("attendance_date")
                 .orderByDesc("confirm_time")
                 .orderByDesc("id");
@@ -143,7 +146,8 @@ public class LabAttendanceServiceImpl extends ServiceImpl<LabAttendanceMapper, L
         QueryWrapper<LabAttendance> queryWrapper = new QueryWrapper<>();
         queryWrapper.eq("lab_id", labId)
                 .eq("user_id", userId)
-                .eq("attendance_date", attendanceDate);
+                .eq("attendance_date", attendanceDate)
+                .eq("deleted", 0);
 
         LabAttendance attendance = this.getOne(queryWrapper);
         if (attendance != null && attendance.getStatus() != null

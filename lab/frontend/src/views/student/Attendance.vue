@@ -3,8 +3,8 @@
     <section class="toolbar-card">
       <div class="toolbar-main">
         <div>
-          <p class="eyebrow">考勤中心</p>
-          <h2>签到、请假申请与历史记录</h2>
+          <p class="eyebrow">学生签到</p>
+          <h2>输入签到码或通过二维码直接签到</h2>
         </div>
         <div class="toolbar-actions">
           <el-button @click="loadPageData">刷新</el-button>
@@ -13,146 +13,80 @@
     </section>
 
     <div v-if="!userStore.userInfo?.labId" class="empty-panel">
-      <el-empty description="请先加入实验室后再使用考勤功能。" />
+      <el-empty description="加入实验室后才能使用签到功能" />
     </div>
 
     <template v-else>
       <section class="metric-grid">
-        <MetricCard v-for="card in metricCards" :key="card.label" :label="card.label" :value="card.value" :tip="card.tip" />
+        <MetricCard label="当前状态" :value="isSessionActive ? '可签到' : '暂无会话'" tip="系统自动识别当前有效会话" />
+        <MetricCard label="会话倒计时" :value="isSessionActive ? `${activeSession.remainingSeconds || 0} 秒` : '-'" tip="60 秒签到会话剩余时间" />
+        <MetricCard label="最近记录" :value="historyRows.length" tip="最近考勤记录数量" />
       </section>
 
       <section class="content-grid two-column">
-        <TablePageCard class="panel-card" title="当前考勤场次" subtitle="今日签到窗口">
-          <template #header-extra>
-            <StatusTag :value="currentSession.status" preset="session" />
-          </template>
-
-          <div v-if="!currentSession.available" class="empty-panel">
-            <el-empty description="今天暂无可用考勤场次。" />
+        <article class="sign-card">
+          <div class="card-head">
+            <div>
+              <p class="panel-eyebrow">签到入口</p>
+              <h3>{{ querySessionId ? '检测到二维码签到' : '输入签到码' }}</h3>
+            </div>
+            <span class="session-status">{{ isSessionActive ? '进行中' : '待开始' }}</span>
           </div>
 
-          <template v-else>
-            <div class="session-meta">
-              <div class="meta-item">
-                <span>日期</span>
-                <strong>{{ currentSession.sessionDate || '-' }}</strong>
-              </div>
-              <div class="meta-item">
-                <span>签到时间</span>
-                <strong>{{ formatTime(currentSession.signStartTime) }} - {{ formatTime(currentSession.signEndTime) }}</strong>
-              </div>
-              <div class="meta-item">
-                <span>迟到阈值</span>
-                <strong>{{ formatTime(currentSession.lateTime) }}</strong>
-              </div>
+          <p class="sign-tip">
+            {{ querySessionId ? '点击下方按钮即可按当前二维码发起签到。' : '管理员生成签到码后，输入 6 位签到码完成签到。' }}
+          </p>
+
+          <el-form label-position="top">
+            <el-form-item v-if="!querySessionId" label="签到码">
+              <el-input v-model="signCode" maxlength="6" placeholder="请输入 6 位签到码" />
+            </el-form-item>
+            <el-button type="primary" :loading="signing" @click="handleSign">
+              {{ querySessionId ? '立即签到' : '提交签到' }}
+            </el-button>
+          </el-form>
+        </article>
+
+        <article class="sign-card">
+          <div class="card-head">
+            <div>
+              <p class="panel-eyebrow">当前会话</p>
+              <h3>{{ activeSession.id ? activeSession.sessionNo : '暂无进行中会话' }}</h3>
             </div>
-
-            <div class="status-box-grid">
-              <article class="status-box">
-                <span>我的签到</span>
-                <StatusTag :value="currentSession.myRecord?.signStatus" preset="attendance" />
-                <small>{{ formatDateTime(currentSession.myRecord?.signTime) }}</small>
-              </article>
-              <article class="status-box">
-                <span>请假申请</span>
-                <StatusTag :value="currentSession.myLeaveRequest?.leaveStatus" preset="leave" fallback-label="无" />
-                <small>{{ currentSession.myLeaveRequest?.reviewComment || currentSession.myLeaveRequest?.leaveReason || '暂无请假申请' }}</small>
-              </article>
-            </div>
-
-            <el-alert
-              class="session-alert"
-              :closable="false"
-              :type="currentSession.canSignIn ? 'success' : 'info'"
-              :title="signCodeNotice"
-            />
-
-            <el-form label-width="92px" class="action-form">
-              <el-form-item label="签到码">
-                <el-input v-model="signForm.signCode" maxlength="12" placeholder="请输入管理员现场展示的签到码" />
-              </el-form-item>
-              <el-form-item label="备注">
-                <el-input v-model="signForm.remark" type="textarea" :rows="3" maxlength="120" show-word-limit />
-              </el-form-item>
-              <el-form-item>
-                <el-button type="primary" :disabled="!currentSession.canSignIn" :loading="signing" @click="submitSignIn">
-                  立即签到
-                </el-button>
-              </el-form-item>
-            </el-form>
-
-            <el-divider />
-
-            <el-form label-width="92px" class="action-form">
-              <el-form-item label="请假原因">
-                <el-input v-model="leaveForm.leaveReason" type="textarea" :rows="3" maxlength="255" show-word-limit />
-              </el-form-item>
-              <el-form-item>
-                <el-button
-                  type="warning"
-                  plain
-                  :disabled="!currentSession.canApplyLeave"
-                  :loading="submittingLeave"
-                  @click="submitLeave"
-                >
-                  提交请假
-                </el-button>
-                <el-button
-                  type="info"
-                  plain
-                  :disabled="currentSession.status !== 'closed'"
-                  :loading="submittingMakeup"
-                  @click="submitMakeup"
-                >
-                  申请补签
-                </el-button>
-              </el-form-item>
-            </el-form>
-          </template>
-        </TablePageCard>
-
-        <TablePageCard class="panel-card" title="近期概览" subtitle="历史统计" :count-label="`历史 ${pagination.total} 条`" count-tag-type="success">
+          </div>
 
           <div class="summary-grid">
-            <MetricCard label="正常" :value="historyStats.normal" compact />
-            <MetricCard label="迟到" :value="historyStats.late" compact />
-            <MetricCard label="请假" :value="historyStats.leave" compact />
-            <MetricCard label="补签" :value="historyStats.supplement" compact />
-            <MetricCard label="缺勤" :value="historyStats.absent" compact />
-            <MetricCard label="待处理" :value="historyStats.pending" compact />
+            <div class="summary-item">
+              <span>会话状态</span>
+              <strong>{{ isSessionActive ? '进行中' : '未开始' }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>剩余时间</span>
+              <strong>{{ isSessionActive ? `${activeSession.remainingSeconds || 0} 秒` : '-' }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>结束时间</span>
+              <strong>{{ formatDateTime(activeSession.expireTime) }}</strong>
+            </div>
+            <div class="summary-item">
+              <span>提示</span>
+              <strong>{{ activeSession.id ? '会话结束后自动生成结果' : '等待管理员创建会话' }}</strong>
+            </div>
           </div>
-        </TablePageCard>
+        </article>
       </section>
 
-      <TablePageCard title="考勤记录" subtitle="历史场次" :count-label="`${pagination.total} 条`">
-
-        <el-table v-loading="historyLoading" :data="history" stripe>
-          <el-table-column prop="sessionDate" label="日期" min-width="120" />
-          <el-table-column prop="labName" label="实验室" min-width="160" />
+      <TablePageCard title="最近考勤结果" subtitle="个人记录" :count-label="`${historyTotal} 条`">
+        <el-table :data="historyRows" stripe>
+          <el-table-column prop="attendanceDate" label="日期" min-width="120" />
           <el-table-column label="状态" min-width="120">
-            <template #default="{ row }">
-              <StatusTag :value="row.signStatus" preset="attendance" />
-            </template>
+            <template #default="{ row }">{{ attendanceStatusLabel(row) }}</template>
           </el-table-column>
           <el-table-column label="签到时间" min-width="180">
-            <template #default="{ row }">{{ formatDateTime(row.signTime) }}</template>
+            <template #default="{ row }">{{ formatDateTime(row.checkinTime || row.confirmTime) }}</template>
           </el-table-column>
-          <el-table-column prop="remark" label="备注" min-width="220" show-overflow-tooltip />
-          <el-table-column label="审核时间" min-width="180">
-            <template #default="{ row }">{{ formatDateTime(row.reviewTime) }}</template>
-          </el-table-column>
+          <el-table-column prop="reason" label="备注" min-width="220" show-overflow-tooltip />
         </el-table>
-
-        <template #pagination>
-          <el-pagination
-            background
-            layout="prev, pager, next, total"
-            :current-page="pagination.pageNum"
-            :page-size="pagination.pageSize"
-            :total="pagination.total"
-            @current-change="handlePageChange"
-          />
-        </template>
       </TablePageCard>
     </template>
   </div>
@@ -160,314 +94,157 @@
 
 <script setup>
 import dayjs from 'dayjs'
-import { ElMessage } from 'element-plus'
 import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
+import { useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import MetricCard from '@/components/common/MetricCard.vue'
-import StatusTag from '@/components/common/StatusTag.vue'
 import TablePageCard from '@/components/common/TablePageCard.vue'
-import { getStatusLabel } from '@/utils/status-presenters'
-import {
-  applyAttendanceLeave,
-  getCurrentStudentAttendanceSession,
-  getStudentAttendanceHistory,
-  requestAttendanceMakeup,
-  signInStudentAttendance
-} from '@/api/attendanceWorkflow'
+import { getActiveAttendanceSession, signAttendanceSession } from '@/api/attendance'
+import { getMyAttendance } from '@/api/labSpace'
 import { useUserStore } from '@/stores/user'
+import { createSessionCountdown } from '@/utils/attendanceSession'
+import { getAttendanceStatusText } from '@/utils/attendance-status'
 
+const route = useRoute()
 const userStore = useUserStore()
-
+const querySessionId = computed(() => route.query.sessionId || '')
+const signCode = ref('')
 const signing = ref(false)
-const submittingLeave = ref(false)
-const submittingMakeup = ref(false)
-const historyLoading = ref(false)
-const currentSession = reactive({
-  available: false,
-  status: null,
-  sessionDate: '',
-  signStartTime: '',
-  signEndTime: '',
-  lateTime: '',
-  codeReady: false,
-  codeExpireTime: '',
-  codeRemainingSeconds: 0,
-  canSignIn: false,
-  canApplyLeave: false,
-  myRecord: null,
-  myLeaveRequest: null
+const historyRows = ref([])
+const historyTotal = ref(0)
+
+const activeSession = reactive({
+  id: null,
+  sessionNo: '',
+  status: '',
+  expireTime: '',
+  remainingSeconds: 0
 })
-const history = ref([])
+const sessionCountdown = createSessionCountdown(activeSession)
+const isSessionActive = computed(() => activeSession.status === 'active')
 
-const pagination = reactive({
-  pageNum: 1,
-  pageSize: 10,
-  total: 0
-})
-
-const signForm = reactive({
-  signCode: '',
-  remark: ''
-})
-
-const leaveForm = reactive({
-  leaveReason: ''
-})
-const SESSION_POLL_INTERVAL_MS = 15000
-let sessionPollTimer = null
-
-const metricCards = computed(() => [
-  {
-    label: '当前状态',
-    value: getStatusLabel(currentSession.myRecord?.signStatus, 'attendance'),
-    tip: '今日考勤结果'
-  },
-  {
-    label: '请假状态',
-    value: getStatusLabel(currentSession.myLeaveRequest?.leaveStatus, 'leave', '无'),
-    tip: '当前场次请假审批结果'
-  },
-  {
-    label: '历史记录',
-    value: pagination.total,
-    tip: '累计考勤记录数'
-  },
-  {
-    label: '当前可签到',
-    value: currentSession.canSignIn ? '可以' : '不可以',
-    tip: '根据签到时间与签到码校验结果'
-  }
-])
-
-const signCodeNotice = computed(() => {
-  if (!currentSession.available) {
-    return '今天暂无可用考勤场次。'
-  }
-  if (currentSession.status === 'pending') {
-    return '到达签到开始时间后，实验室管理员端会自动生成动态签到码并现场公布。'
-  }
-  if (currentSession.status === 'closed') {
-    return '本场签到窗口已结束，如未签到可按需申请补签。'
-  }
-  if (currentSession.codeReady && currentSession.codeExpireTime) {
-    return `当前使用动态签到码签到，有效至 ${formatTime(currentSession.codeExpireTime)}。`
-  }
-  return '签到窗口已开启，等待实验室管理员获取并公布当前动态签到码。'
-})
-
-const historyStats = computed(() => {
-  const counter = {
-    normal: 0,
-    late: 0,
-    leave: 0,
-    supplement: 0,
-    absent: 0,
-    pending: 0
-  }
-
-  history.value.forEach((item) => {
-    switch (item.signStatus) {
-      case 'normal':
-        counter.normal += 1
-        break
-      case 'late':
-        counter.late += 1
-        break
-      case 'leave':
-        counter.leave += 1
-        break
-      case 'makeup_pending':
-      case 'makeup_rejected':
-        counter.pending += 1
-        break
-      case 'makeup_approved':
-        counter.supplement += 1
-        break
-      case 'absent':
-        counter.absent += 1
-        break
-      default:
-        break
-    }
-  })
-
-  return counter
-})
-
-const loadCurrentSession = async () => {
-  const response = await getCurrentStudentAttendanceSession()
-  Object.assign(currentSession, {
-    available: false,
-    status: null,
-    sessionDate: '',
-    signStartTime: '',
-    signEndTime: '',
-    lateTime: '',
-    codeReady: false,
-    codeExpireTime: '',
-    codeRemainingSeconds: 0,
-    canSignIn: false,
-    canApplyLeave: false,
-    myRecord: null,
-    myLeaveRequest: null,
+const loadActiveSession = async () => {
+  const response = await getActiveAttendanceSession()
+  Object.assign(activeSession, {
+    id: null,
+    sessionNo: '',
+    status: '',
+    expireTime: '',
+    remainingSeconds: 0,
     ...(response.data || {})
   })
+  sessionCountdown.restart()
 }
 
 const loadHistory = async () => {
-  historyLoading.value = true
-  try {
-    const response = await getStudentAttendanceHistory({
-      pageNum: pagination.pageNum,
-      pageSize: pagination.pageSize
-    })
-    history.value = response.data?.records || []
-    pagination.total = response.data?.total || 0
-  } finally {
-    historyLoading.value = false
-  }
+  const response = await getMyAttendance({ pageNum: 1, pageSize: 12 })
+  historyRows.value = response.data?.records || []
+  historyTotal.value = response.data?.total || 0
 }
 
 const loadPageData = async () => {
-  await Promise.all([loadCurrentSession(), loadHistory()])
+  await Promise.all([loadActiveSession(), loadHistory()])
 }
 
-const startSessionPolling = () => {
-  stopSessionPolling()
-  sessionPollTimer = window.setInterval(() => {
-    loadCurrentSession().catch(() => {})
-  }, SESSION_POLL_INTERVAL_MS)
-}
-
-const stopSessionPolling = () => {
-  if (sessionPollTimer) {
-    window.clearInterval(sessionPollTimer)
-    sessionPollTimer = null
-  }
-}
-
-const submitSignIn = async () => {
-  if (!currentSession.available) {
-    return
-  }
-  if (!signForm.signCode.trim()) {
-    ElMessage.warning('请先输入签到码')
-    return
-  }
-
+const handleSign = async () => {
   signing.value = true
   try {
-    await signInStudentAttendance({
-      signCode: signForm.signCode.trim(),
-      remark: signForm.remark || undefined
-    })
-    ElMessage.success('签到已提交')
-    signForm.signCode = ''
-    signForm.remark = ''
+    if (querySessionId.value) {
+      await signAttendanceSession({ sessionId: Number(querySessionId.value) })
+    } else {
+      if (!signCode.value.trim()) {
+        ElMessage.warning('请输入签到码')
+        return
+      }
+      await signAttendanceSession({ signCode: signCode.value.trim() })
+    }
+    signCode.value = ''
+    ElMessage.success('签到成功')
     await loadPageData()
   } finally {
     signing.value = false
   }
 }
 
-const submitLeave = async () => {
-  if (!currentSession.available) {
-    return
-  }
-  if (!leaveForm.leaveReason.trim()) {
-    ElMessage.warning('请先填写请假原因')
-    return
-  }
+const attendanceStatusLabel = (record) => getAttendanceStatusText(record)
 
-  submittingLeave.value = true
-  try {
-    await applyAttendanceLeave({
-      sessionId: currentSession.id,
-      leaveReason: leaveForm.leaveReason.trim()
-    })
-    ElMessage.success('请假申请已提交')
-    leaveForm.leaveReason = ''
-    await loadCurrentSession()
-  } finally {
-    submittingLeave.value = false
-  }
-}
-
-const submitMakeup = async () => {
-  submittingMakeup.value = true
-  try {
-    await requestAttendanceMakeup({
-      remark: signForm.remark || undefined
-    })
-    ElMessage.success('补签申请已提交')
-    await loadPageData()
-  } finally {
-    submittingMakeup.value = false
-  }
-}
-
-const handlePageChange = (page) => {
-  pagination.pageNum = page
-  loadHistory()
-}
-
-const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')
-const formatTime = (value) => (value ? dayjs(value).format('HH:mm') : '-')
+const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm:ss') : '-')
 
 onMounted(() => {
   loadPageData()
-  startSessionPolling()
 })
 
 onUnmounted(() => {
-  stopSessionPolling()
+  sessionCountdown.stop()
 })
 </script>
 
 <style scoped>
-.session-meta {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  margin-bottom: 18px;
+.sign-card {
+  padding: 20px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid rgba(226, 232, 240, 0.92);
 }
 
-.meta-item,
-.status-box {
-  padding: 14px 16px;
-  border-radius: 16px;
-  background: rgba(248, 250, 252, 0.92);
-  display: grid;
-  gap: 6px;
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
 }
 
-.meta-item span,
-.status-box span,
-.status-box small {
+.panel-eyebrow,
+.sign-tip,
+.summary-item span {
   color: #64748b;
 }
 
-.status-box-grid,
+.panel-eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.card-head h3 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.session-status {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: rgba(219, 234, 254, 0.92);
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.sign-tip {
+  margin: 18px 0;
+  line-height: 1.7;
+}
+
 .summary-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 14px;
+  gap: 12px;
 }
 
-.action-form {
-  margin-top: 12px;
+.summary-item {
+  padding: 14px 16px;
+  border-radius: 18px;
+  background: rgba(248, 250, 252, 0.92);
+  display: grid;
+  gap: 8px;
 }
 
-.session-alert {
-  margin-top: 14px;
-}
-
-.summary-grid :deep(.metric-card) {
-  min-height: 0;
+.summary-item strong {
+  color: #0f172a;
 }
 
 @media (max-width: 768px) {
-  .session-meta,
-  .status-box-grid,
   .summary-grid {
     grid-template-columns: 1fr;
   }

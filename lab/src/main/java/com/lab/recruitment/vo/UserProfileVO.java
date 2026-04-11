@@ -21,6 +21,8 @@ public class UserProfileVO {
     private String avatar;
     private String resume;
     private Long labId;
+    private Long managedLabId;
+    private String labName;
     private Integer canEdit;
     private Integer status;
     private String primaryIdentity;

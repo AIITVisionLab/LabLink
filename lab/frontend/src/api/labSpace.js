@@ -8,33 +8,9 @@ export function getLabSpaceOverview(params) {
   })
 }
 
-export function getDailyAttendance(params) {
-  return request({
-    url: '/api/lab-space/attendance/daily',
-    method: 'get',
-    params
-  })
-}
-
-export function confirmAttendance(data) {
-  return request({
-    url: '/api/lab-space/attendance/confirm',
-    method: 'post',
-    data
-  })
-}
-
 export function getMyAttendance(params) {
   return request({
     url: '/api/lab-space/attendance/my',
-    method: 'get',
-    params
-  })
-}
-
-export function getAttendanceSummary(params) {
-  return request({
-    url: '/api/lab-space/attendance/summary',
     method: 'get',
     params
   })
