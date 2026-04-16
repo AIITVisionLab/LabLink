@@ -1,0 +1,65 @@
+<svg width="1280" height="760" viewBox="0 0 1280 760" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#F8FAFC"/>
+      <stop offset="1" stop-color="#E2E8F0"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0 0L10 5L0 10Z" fill="#475569"/>
+    </marker>
+  </defs>
+
+  <rect width="1280" height="760" rx="28" fill="#F8FAFC"/>
+  <text x="58" y="72" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="34" font-weight="700">LabLink Architecture Overview</text>
+  <text x="58" y="106" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="18">
+    Client channels, service layer, infrastructure, and runtime assets
+  </text>
+
+  <rect x="58" y="152" width="252" height="456" rx="24" fill="#DBEAFE"/>
+  <text x="90" y="198" fill="#1D4ED8" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Client Channels</text>
+  <rect x="88" y="228" width="192" height="78" rx="18" fill="#FFFFFF"/>
+  <text x="112" y="272" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Web Portal</text>
+  <text x="112" y="293" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Admin / Teacher / Student views</text>
+  <rect x="88" y="328" width="192" height="78" rx="18" fill="#FFFFFF"/>
+  <text x="112" y="372" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Mobile UI</text>
+  <text x="112" y="393" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Responsive pages + Capacitor</text>
+  <rect x="88" y="428" width="192" height="78" rx="18" fill="#FFFFFF"/>
+  <text x="112" y="472" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Desktop App</text>
+  <text x="112" y="493" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Electron packaging entry</text>
+
+  <rect x="356" y="152" width="372" height="456" rx="24" fill="#CCFBF1"/>
+  <text x="388" y="198" fill="#0F766E" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Application Layer</text>
+  <rect x="386" y="228" width="312" height="92" rx="18" fill="#FFFFFF"/>
+  <text x="414" y="265" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Vue 3 + Vite Frontend</text>
+  <text x="414" y="289" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Router / Pinia / Axios / Element Plus</text>
+  <rect x="386" y="350" width="312" height="116" rx="18" fill="#FFFFFF"/>
+  <text x="414" y="387" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Spring Boot Backend</text>
+  <text x="414" y="411" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Security / Controllers / Services / MyBatis-Plus</text>
+  <text x="414" y="434" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Flyway / File service / Audit / Notifications</text>
+  <rect x="386" y="496" width="312" height="82" rx="18" fill="#FFFFFF"/>
+  <text x="414" y="534" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Business Domains</text>
+  <text x="414" y="557" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Labs, recruitment, attendance, equipment, search</text>
+
+  <rect x="774" y="152" width="448" height="456" rx="24" fill="#EDE9FE"/>
+  <text x="806" y="198" fill="#6D28D9" font-family="Segoe UI, Arial, sans-serif" font-size="26" font-weight="700">Infrastructure &amp; Runtime</text>
+  <rect x="804" y="228" width="172" height="92" rx="18" fill="#FFFFFF"/>
+  <text x="837" y="266" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">MySQL 8</text>
+  <text x="837" y="289" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Core data + demo seed</text>
+  <rect x="1000" y="228" width="192" height="92" rx="18" fill="#FFFFFF"/>
+  <text x="1034" y="266" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Redis</text>
+  <text x="1034" y="289" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Optional cache layer</text>
+  <rect x="804" y="352" width="172" height="92" rx="18" fill="#FFFFFF"/>
+  <text x="827" y="390" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">RabbitMQ</text>
+  <text x="827" y="413" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Async event pipeline</text>
+  <rect x="1000" y="352" width="192" height="92" rx="18" fill="#FFFFFF"/>
+  <text x="1027" y="390" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">Uploads</text>
+  <text x="1027" y="413" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Public / protected files</text>
+  <rect x="804" y="476" width="388" height="102" rx="18" fill="#FFFFFF"/>
+  <text x="834" y="514" fill="#0F172A" font-family="Segoe UI, Arial, sans-serif" font-size="22" font-weight="700">DevOps Assets</text>
+  <text x="834" y="538" fill="#475569" font-family="Segoe UI, Arial, sans-serif" font-size="14">Docker Compose / PowerShell scripts / logs / deployment helpers</text>
+
+  <line x1="310" y1="380" x2="356" y2="380" stroke="#475569" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="728" y1="380" x2="774" y2="380" stroke="#475569" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="892" y1="320" x2="892" y2="352" stroke="#475569" stroke-width="4" marker-end="url(#arrow)"/>
+  <line x1="1096" y1="320" x2="1096" y2="352" stroke="#475569" stroke-width="4" marker-end="url(#arrow)"/>
+</svg>

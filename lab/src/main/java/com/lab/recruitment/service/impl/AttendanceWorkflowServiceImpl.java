@@ -19,7 +19,6 @@ import com.lab.recruitment.entity.AttendanceSchedule;
 import com.lab.recruitment.entity.AttendanceSession;
 import com.lab.recruitment.entity.AttendanceTask;
 import com.lab.recruitment.entity.Lab;
-import com.lab.recruitment.entity.LabMember;
 import com.lab.recruitment.entity.User;
 import com.lab.recruitment.mapper.AttendanceChangeLogMapper;
 import com.lab.recruitment.mapper.AttendanceLeaveMapper;
@@ -29,7 +28,6 @@ import com.lab.recruitment.mapper.AttendanceScheduleMapper;
 import com.lab.recruitment.mapper.AttendanceSessionMapper;
 import com.lab.recruitment.mapper.AttendanceTaskMapper;
 import com.lab.recruitment.mapper.LabMapper;
-import com.lab.recruitment.mapper.LabMemberMapper;
 import com.lab.recruitment.mapper.UserMapper;
 import com.lab.recruitment.service.AuditLogService;
 import com.lab.recruitment.service.AttendanceWorkflowService;
@@ -37,6 +35,7 @@ import com.lab.recruitment.service.IdempotencyLockService;
 import com.lab.recruitment.service.StatisticsRefreshService;
 import com.lab.recruitment.service.SystemNotificationService;
 import com.lab.recruitment.service.UserAccessService;
+import com.lab.recruitment.support.AttendanceAccessSupport;
 import com.lab.recruitment.support.CurrentUserAccessor;
 import com.lab.recruitment.support.UserAccessProfile;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -59,7 +58,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
-import java.util.concurrent.ThreadLocalRandom;
+
+import static com.lab.recruitment.utils.TextNormalizer.trimToNull;
 
 @Service
 public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService {
@@ -118,9 +118,6 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
     private LabMapper labMapper;
 
     @Autowired
-    private LabMemberMapper labMemberMapper;
-
-    @Autowired
     private UserMapper userMapper;
 
     @Autowired
@@ -141,9 +138,12 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
     @Autowired
     private IdempotencyLockService idempotencyLockService;
 
+    @Autowired
+    private AttendanceAccessSupport attendanceAccessSupport;
+
     @Override
     public Page<Map<String, Object>> getTaskPage(Integer pageNum, Integer pageSize, Long collegeId, String keyword, User currentUser) {
-        Long scopedCollegeId = resolveTaskScopeCollegeId(collegeId, currentUser);
+        Long scopedCollegeId = attendanceAccessSupport.resolveTaskScopeCollegeId(collegeId, currentUser);
         long current = Math.max(pageNum == null ? 1 : pageNum, 1);
         long size = Math.max(pageSize == null ? 10 : pageSize, 1);
         long offset = (current - 1) * size;
@@ -193,7 +193,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
     @Override
     @Transactional
     public Map<String, Object> saveTask(AttendanceTaskUpsertDTO taskDTO, User currentUser) {
-        Long scopedCollegeId = resolveTaskScopeCollegeId(taskDTO.getCollegeId(), currentUser);
+        Long scopedCollegeId = attendanceAccessSupport.resolveTaskScopeCollegeId(taskDTO.getCollegeId(), currentUser);
         if (!StringUtils.hasText(taskDTO.getSemesterName())) {
             throw new RuntimeException("Semester name is required");
         }
@@ -224,7 +224,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
             if (task == null || !Objects.equals(task.getDeleted(), 0)) {
                 throw new RuntimeException("Attendance task does not exist");
             }
-            assertTaskScope(task, currentUser);
+            attendanceAccessSupport.assertTaskScope(task, currentUser);
             task.setCollegeId(scopedCollegeId);
             task.setSemesterName(taskDTO.getSemesterName().trim());
             task.setTaskName(taskDTO.getTaskName().trim());
@@ -243,7 +243,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
         if (task == null || !Objects.equals(task.getDeleted(), 0)) {
             throw new RuntimeException("Attendance task does not exist");
         }
-        assertTaskScope(task, currentUser);
+        attendanceAccessSupport.assertTaskScope(task, currentUser);
         Integer scheduleCount = jdbcTemplate.queryForObject(
                 "SELECT COUNT(*) FROM t_attendance_schedule WHERE task_id = ? AND deleted = 0 AND status = 1",
                 Integer.class,
@@ -264,7 +264,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
         if (task == null || !Objects.equals(task.getDeleted(), 0)) {
             throw new RuntimeException("Attendance task does not exist");
         }
-        assertTaskScope(task, currentUser);
+        attendanceAccessSupport.assertTaskScope(task, currentUser);
 
         QueryWrapper<AttendanceSchedule> wrapper = new QueryWrapper<>();
         wrapper.eq("task_id", taskId).eq("deleted", 0).orderByAsc("week_day");
@@ -278,7 +278,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
         if (task == null || !Objects.equals(task.getDeleted(), 0)) {
             throw new RuntimeException("Attendance task does not exist");
         }
-        assertTaskScope(task, currentUser);
+        attendanceAccessSupport.assertTaskScope(task, currentUser);
         if (schedules == null || schedules.isEmpty()) {
             throw new RuntimeException("At least one schedule is required");
         }
@@ -381,7 +381,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
 
     @Override
     public Map<String, Object> getCurrentLabSession(User currentUser) {
-        Long labId = resolveManagedLabId(currentUser);
+        Long labId = attendanceAccessSupport.resolveManagedLabId(currentUser);
         if (labId == null) {
             throw new RuntimeException("Current account is not bound to a managed lab");
         }
@@ -392,7 +392,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
 
     @Override
     public List<Map<String, Object>> getCurrentLabSessionRecords(User currentUser) {
-        Long labId = resolveManagedLabId(currentUser);
+        Long labId = attendanceAccessSupport.resolveManagedLabId(currentUser);
         if (labId == null) {
             throw new RuntimeException("Current account is not bound to a managed lab");
         }
@@ -411,7 +411,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
             throw new RuntimeException("Attendance session does not exist");
         }
 
-        Long managedLabId = resolveManagedLabId(currentUser);
+        Long managedLabId = attendanceAccessSupport.resolveManagedLabId(currentUser);
         if (!currentUserAccessor.isSuperAdmin(currentUser)
                 && (managedLabId == null || !Objects.equals(managedLabId, session.getLabId()))) {
             throw new RuntimeException("You do not have access to this attendance session");
@@ -421,7 +421,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
         if (member == null || !Objects.equals(member.getDeleted(), 0)) {
             throw new RuntimeException("Student record does not exist");
         }
-        assertActiveLabMember(session.getLabId(), member.getId());
+        attendanceAccessSupport.assertActiveLabMember(session.getLabId(), member.getId());
 
         AttendanceRecord record = findAttendanceRecord(session.getId(), reviewDTO.getUserId());
         if (record == null) {
@@ -470,7 +470,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
         if (file == null || file.isEmpty()) {
             throw new RuntimeException("Attendance photo is required");
         }
-        Long labId = resolveManagedLabId(currentUser);
+        Long labId = attendanceAccessSupport.resolveManagedLabId(currentUser);
         if (labId == null) {
             throw new RuntimeException("Current account is not bound to a managed lab");
         }
@@ -603,7 +603,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
 
     @Override
     public Map<String, Object> getCurrentStudentSession(User currentUser) {
-        Long labId = resolveManagedLabId(currentUser);
+        Long labId = attendanceAccessSupport.resolveManagedLabId(currentUser);
         if (currentUser == null || labId == null) {
             throw new RuntimeException("Current account is not bound to a lab");
         }
@@ -634,7 +634,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
         if (signInDTO == null || !StringUtils.hasText(signInDTO.getSignCode())) {
             throw new RuntimeException("Sign-in code is required");
         }
-        Long labId = resolveManagedLabId(currentUser);
+        Long labId = attendanceAccessSupport.resolveManagedLabId(currentUser);
         if (currentUser == null || currentUser.getId() == null || labId == null) {
             throw new RuntimeException("Current account is not bound to a lab");
         }
@@ -717,7 +717,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
         if (leaveDTO == null || leaveDTO.getSessionId() == null || !StringUtils.hasText(leaveDTO.getLeaveReason())) {
             throw new RuntimeException("Leave request data is required");
         }
-        Long labId = resolveManagedLabId(currentUser);
+        Long labId = attendanceAccessSupport.resolveManagedLabId(currentUser);
         if (currentUser == null || currentUser.getId() == null || labId == null) {
             throw new RuntimeException("Current account is not bound to a lab");
         }
@@ -774,7 +774,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
     @Override
     @Transactional
     public boolean studentRequestMakeup(AttendanceMakeupRequestDTO requestDTO, User currentUser) {
-        Long labId = resolveManagedLabId(currentUser);
+        Long labId = attendanceAccessSupport.resolveManagedLabId(currentUser);
         if (currentUser == null || currentUser.getId() == null || labId == null) {
             throw new RuntimeException("Current account is not bound to a lab");
         }
@@ -949,7 +949,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
         if (session == null || !Objects.equals(session.getDeleted(), 0)) {
             throw new RuntimeException("Attendance session does not exist");
         }
-        assertActiveLabMember(session.getLabId(), leave.getUserId());
+        attendanceAccessSupport.assertActiveLabMember(session.getLabId(), leave.getUserId());
 
         leave.setLeaveStatus(approved ? LEAVE_STATUS_APPROVED : LEAVE_STATUS_REJECTED);
         leave.setReviewComment(reviewDTO.getReviewComment().trim());
@@ -1017,62 +1017,6 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
                 operatorUserId,
                 reason
         );
-    }
-
-    private Long resolveTaskScopeCollegeId(Long collegeId, User currentUser) {
-        if (currentUserAccessor.isSuperAdmin(currentUser)) {
-            return collegeId;
-        }
-
-        if (currentUserAccessor.isCollegeManager(currentUser)) {
-            Long managedCollegeId = currentUserAccessor.resolveManagedCollegeId(currentUser);
-            if (managedCollegeId == null) {
-                throw new RuntimeException("Current account is not bound to a managed college");
-            }
-            if (collegeId != null && !Objects.equals(collegeId, managedCollegeId)) {
-                throw new RuntimeException("You do not have access to another college");
-            }
-            return managedCollegeId;
-        }
-
-        if (resolveManagedLabId(currentUser) != null) {
-            throw new RuntimeException("Only school directors or college managers can manage attendance tasks");
-        }
-
-        if (collegeId == null) {
-            throw new RuntimeException("College id is required");
-        }
-        return collegeId;
-    }
-
-    private void assertActiveLabMember(Long labId, Long userId) {
-        if (labId == null || userId == null) {
-            throw new RuntimeException("Student record does not belong to this lab");
-        }
-
-        QueryWrapper<LabMember> memberQuery = new QueryWrapper<>();
-        memberQuery.eq("lab_id", labId)
-                .eq("user_id", userId)
-                .eq("deleted", 0)
-                .eq("status", MEMBER_STATUS_ACTIVE)
-                .and(wrapper -> wrapper.isNull("member_role").or().ne("member_role", MEMBER_ROLE_LAB_ADMIN))
-                .last("LIMIT 1");
-        if (labMemberMapper.selectOne(memberQuery) == null) {
-            throw new RuntimeException("Student record does not belong to this lab");
-        }
-    }
-
-    private void assertTaskScope(AttendanceTask task, User currentUser) {
-        if (task == null || task.getId() == null) {
-            throw new RuntimeException("Attendance task does not exist");
-        }
-        if (currentUserAccessor.isSuperAdmin(currentUser)) {
-            return;
-        }
-        Long scopedCollegeId = resolveTaskScopeCollegeId(task.getCollegeId(), currentUser);
-        if (!Objects.equals(scopedCollegeId, task.getCollegeId())) {
-            throw new RuntimeException("You do not have access to this attendance task");
-        }
     }
 
     private Map<String, Object> buildTaskMap(AttendanceTask task) {
@@ -1154,14 +1098,6 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
     private long count(String sql, Object... args) {
         Long value = jdbcTemplate.queryForObject(sql, Long.class, args);
         return value == null ? 0L : value;
-    }
-
-    private Long resolveManagedLabId(User currentUser) {
-        Long managedLabId = userAccessService.resolveManagedLabId(currentUser);
-        if (managedLabId != null) {
-            return managedLabId;
-        }
-        return currentUser == null ? null : currentUser.getLabId();
     }
 
     private AttendanceSession ensureSessionForToday(Long labId, User currentUser, boolean createIfMissing) {
@@ -1578,11 +1514,7 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
 
     private String generateSignCode(Integer length) {
         int realLength = limitRange(length, 4, 6, 4);
-        StringBuilder builder = new StringBuilder(realLength);
-        for (int index = 0; index < realLength; index++) {
-            builder.append(ThreadLocalRandom.current().nextInt(10));
-        }
-        return builder.toString();
+        return com.lab.recruitment.utils.AttendanceCodeGenerator.generateSignCode(realLength);
     }
 
     private String buildAttendanceSignLockKey(Long sessionId, Long userId) {
@@ -1602,14 +1534,6 @@ public class AttendanceWorkflowServiceImpl implements AttendanceWorkflowService 
             return max;
         }
         return realValue;
-    }
-
-    private String trimToNull(String value) {
-        if (!StringUtils.hasText(value)) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private double round(double value) {

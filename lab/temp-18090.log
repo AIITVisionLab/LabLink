@@ -1,39 +1,39 @@
-2026-04-11 21:32:29 [main] INFO  c.l.r.LabRecruitmentApplication - Starting LabRecruitmentApplication using Java 17.0.12 on DESKTOP-BA8OBJV with PID 13232 (C:\Users\cjh\IdeaProjects\labLink\lab\target\classes started by cjh in C:\Users\cjh\IdeaProjects\labLink\lab)
-2026-04-11 21:32:29 [main] INFO  c.l.r.LabRecruitmentApplication - No active profile set, falling back to 1 default profile: "default"
-2026-04-11 21:32:29 [main] DEBUG o.s.boot.SpringApplication - Loading source class com.lab.recruitment.LabRecruitmentApplication
-2026-04-11 21:32:29 [main] DEBUG o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Refreshing org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext@3a0baae5
-2026-04-11 21:32:29 [main] DEBUG o.s.b.a.AutoConfigurationPackages - @EnableAutoConfiguration was declared on a class in the package 'com.lab.recruitment'. Automatic @Repository and @Entity scanning is enabled.
-2026-04-11 21:32:30 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
-2026-04-11 21:32:30 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
-2026-04-11 21:32:30 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 37 ms. Found 0 Redis repository interfaces.
-2026-04-11 21:32:31 [main] DEBUG o.s.b.w.e.t.TomcatServletWebServerFactory - Code archive: C:\Users\cjh\.m2\repository\org\springframework\boot\spring-boot\2.7.14\spring-boot-2.7.14.jar
-2026-04-11 21:32:31 [main] DEBUG o.s.b.w.e.t.TomcatServletWebServerFactory - Code archive: C:\Users\cjh\.m2\repository\org\springframework\boot\spring-boot\2.7.14\spring-boot-2.7.14.jar
-2026-04-11 21:32:31 [main] DEBUG o.s.b.w.e.t.TomcatServletWebServerFactory - None of the document roots [src/main/webapp, public, static] point to a directory and will be ignored.
-2026-04-11 21:32:31 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port(s): 18090 (http)
-2026-04-11 21:32:31 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
-2026-04-11 21:32:31 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/9.0.78]
-2026-04-11 21:32:31 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
-2026-04-11 21:32:31 [main] DEBUG o.s.b.w.s.c.ServletWebServerApplicationContext - Published root WebApplicationContext as ServletContext attribute with name [org.springframework.web.context.WebApplicationContext.ROOT]
-2026-04-11 21:32:31 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 2148 ms
-2026-04-11 21:32:31 [main] INFO  o.f.c.i.license.VersionPrinter - Flyway Community Edition 8.5.13 by Redgate
-2026-04-11 21:32:31 [main] INFO  o.f.c.i.license.VersionPrinter - See what's new here: https://flywaydb.org/documentation/learnmore/releaseNotes#8.5.13
-2026-04-11 21:32:31 [main] INFO  o.f.c.i.license.VersionPrinter - 
-2026-04-11 21:32:31 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
-2026-04-11 21:32:31 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
-2026-04-11 21:32:31 [main] INFO  o.f.c.i.d.base.BaseDatabaseType - Database: jdbc:mysql://localhost:3306/lab_recruitment (MySQL 8.0)
-2026-04-11 21:32:31 [main] INFO  o.f.core.internal.command.DbValidate - Successfully validated 13 migrations (execution time 00:00.087s)
-2026-04-11 21:32:31 [main] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `lab_recruitment`: 13
-2026-04-11 21:32:31 [main] INFO  o.f.core.internal.command.DbMigrate - Schema `lab_recruitment` is up to date. No migration necessary.
-2026-04-11 21:32:32 [main] DEBUG o.s.b.w.s.ServletContextInitializerBeans - Mapping filters: springSecurityFilterChain urls=[/*] order=-100, filterRegistrationBean urls=[/*] order=2147483647, characterEncodingFilter urls=[/*] order=-2147483648, formContentFilter urls=[/*] order=-9900, requestContextFilter urls=[/*] order=-105, jwtAuthenticationFilter urls=[/*] order=2147483647, requestRateLimitFilter urls=[/*] order=2147483647
-2026-04-11 21:32:32 [main] DEBUG o.s.b.w.s.ServletContextInitializerBeans - Mapping servlets: dispatcherServlet urls=[/]
-2026-04-11 21:32:32 [main] DEBUG o.s.b.w.s.f.OrderedRequestContextFilter - Filter 'requestContextFilter' configured for use
-2026-04-11 21:32:32 [main] DEBUG o.s.b.w.s.f.OrderedCharacterEncodingFilter - Filter 'characterEncodingFilter' configured for use
-2026-04-11 21:32:32 [main] DEBUG o.s.b.w.s.DelegatingFilterProxyRegistrationBean$1 - Filter 'springSecurityFilterChain' configured for use
-2026-04-11 21:32:32 [main] DEBUG o.s.b.w.s.f.OrderedFormContentFilter - Filter 'formContentFilter' configured for use
-2026-04-11 21:32:34 [main] INFO  o.s.s.web.DefaultSecurityFilterChain - Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@65d23aa3, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@52eca410, org.springframework.security.web.context.SecurityContextPersistenceFilter@69c1ea07, org.springframework.security.web.header.HeaderWriterFilter@68f9e807, org.springframework.web.filter.CorsFilter@63d0e8d, org.springframework.security.web.authentication.logout.LogoutFilter@4654e373, com.lab.recruitment.config.JwtAuthenticationFilter@32b46831, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@27fc0217, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@e993715, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@69a76b74, org.springframework.security.web.session.SessionManagementFilter@35f01759, org.springframework.security.web.access.ExceptionTranslationFilter@3355b8ff, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@1bd59b82]
-2026-04-11 21:32:34 [main] INFO  c.b.m.e.s.MybatisPlusApplicationContextAware - Register ApplicationContext instances org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext@3a0baae5
-2026-04-11 21:32:35 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port(s): 18090 (http) with context path ''
-2026-04-11 21:32:35 [main] DEBUG o.s.b.a.l.ConditionEvaluationReportLoggingListener - 
+2026-04-12 11:47:24 [main] INFO  c.l.r.LabRecruitmentApplication - Starting LabRecruitmentApplication using Java 17.0.12 on DESKTOP-BA8OBJV with PID 1368 (C:\Users\cjh\IdeaProjects\labLink\lab\target\classes started by cjh in C:\Users\cjh\IdeaProjects\labLink\lab)
+2026-04-12 11:47:24 [main] INFO  c.l.r.LabRecruitmentApplication - No active profile set, falling back to 1 default profile: "default"
+2026-04-12 11:47:24 [main] DEBUG o.s.boot.SpringApplication - Loading source class com.lab.recruitment.LabRecruitmentApplication
+2026-04-12 11:47:25 [main] DEBUG o.s.b.w.s.c.AnnotationConfigServletWebServerApplicationContext - Refreshing org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext@503ecb24
+2026-04-12 11:47:25 [main] DEBUG o.s.b.a.AutoConfigurationPackages - @EnableAutoConfiguration was declared on a class in the package 'com.lab.recruitment'. Automatic @Repository and @Entity scanning is enabled.
+2026-04-12 11:47:25 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Multiple Spring Data modules found, entering strict repository configuration mode
+2026-04-12 11:47:25 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-04-12 11:47:25 [main] INFO  o.s.d.r.c.RepositoryConfigurationDelegate - Finished Spring Data repository scanning in 23 ms. Found 0 Redis repository interfaces.
+2026-04-12 11:47:26 [main] DEBUG o.s.b.w.e.t.TomcatServletWebServerFactory - Code archive: C:\Users\cjh\.m2\repository\org\springframework\boot\spring-boot\2.7.14\spring-boot-2.7.14.jar
+2026-04-12 11:47:26 [main] DEBUG o.s.b.w.e.t.TomcatServletWebServerFactory - Code archive: C:\Users\cjh\.m2\repository\org\springframework\boot\spring-boot\2.7.14\spring-boot-2.7.14.jar
+2026-04-12 11:47:26 [main] DEBUG o.s.b.w.e.t.TomcatServletWebServerFactory - None of the document roots [src/main/webapp, public, static] point to a directory and will be ignored.
+2026-04-12 11:47:26 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat initialized with port(s): 18090 (http)
+2026-04-12 11:47:26 [main] INFO  o.a.catalina.core.StandardService - Starting service [Tomcat]
+2026-04-12 11:47:26 [main] INFO  o.a.catalina.core.StandardEngine - Starting Servlet engine: [Apache Tomcat/9.0.78]
+2026-04-12 11:47:26 [main] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring embedded WebApplicationContext
+2026-04-12 11:47:26 [main] DEBUG o.s.b.w.s.c.ServletWebServerApplicationContext - Published root WebApplicationContext as ServletContext attribute with name [org.springframework.web.context.WebApplicationContext.ROOT]
+2026-04-12 11:47:26 [main] INFO  o.s.b.w.s.c.ServletWebServerApplicationContext - Root WebApplicationContext: initialization completed in 1520 ms
+2026-04-12 11:47:26 [main] INFO  o.f.c.i.license.VersionPrinter - Flyway Community Edition 8.5.13 by Redgate
+2026-04-12 11:47:26 [main] INFO  o.f.c.i.license.VersionPrinter - See what's new here: https://flywaydb.org/documentation/learnmore/releaseNotes#8.5.13
+2026-04-12 11:47:26 [main] INFO  o.f.c.i.license.VersionPrinter - 
+2026-04-12 11:47:26 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Starting...
+2026-04-12 11:47:26 [main] INFO  com.zaxxer.hikari.HikariDataSource - HikariPool-1 - Start completed.
+2026-04-12 11:47:26 [main] INFO  o.f.c.i.d.base.BaseDatabaseType - Database: jdbc:mysql://localhost:3306/lab_recruitment (MySQL 8.0)
+2026-04-12 11:47:26 [main] INFO  o.f.core.internal.command.DbValidate - Successfully validated 13 migrations (execution time 00:00.027s)
+2026-04-12 11:47:26 [main] INFO  o.f.core.internal.command.DbMigrate - Current version of schema `lab_recruitment`: 13
+2026-04-12 11:47:26 [main] INFO  o.f.core.internal.command.DbMigrate - Schema `lab_recruitment` is up to date. No migration necessary.
+2026-04-12 11:47:27 [main] DEBUG o.s.b.w.s.ServletContextInitializerBeans - Mapping filters: springSecurityFilterChain urls=[/*] order=-100, filterRegistrationBean urls=[/*] order=2147483647, characterEncodingFilter urls=[/*] order=-2147483648, formContentFilter urls=[/*] order=-9900, requestContextFilter urls=[/*] order=-105, jwtAuthenticationFilter urls=[/*] order=2147483647, requestRateLimitFilter urls=[/*] order=2147483647
+2026-04-12 11:47:27 [main] DEBUG o.s.b.w.s.ServletContextInitializerBeans - Mapping servlets: dispatcherServlet urls=[/]
+2026-04-12 11:47:27 [main] DEBUG o.s.b.w.s.f.OrderedRequestContextFilter - Filter 'requestContextFilter' configured for use
+2026-04-12 11:47:27 [main] DEBUG o.s.b.w.s.f.OrderedCharacterEncodingFilter - Filter 'characterEncodingFilter' configured for use
+2026-04-12 11:47:27 [main] DEBUG o.s.b.w.s.DelegatingFilterProxyRegistrationBean$1 - Filter 'springSecurityFilterChain' configured for use
+2026-04-12 11:47:27 [main] DEBUG o.s.b.w.s.f.OrderedFormContentFilter - Filter 'formContentFilter' configured for use
+2026-04-12 11:47:29 [main] INFO  o.s.s.web.DefaultSecurityFilterChain - Will secure any request with [org.springframework.security.web.session.DisableEncodeUrlFilter@1b465fa9, org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@28b2e4d8, org.springframework.security.web.context.SecurityContextPersistenceFilter@14b26e90, org.springframework.security.web.header.HeaderWriterFilter@2a6dbb7c, org.springframework.web.filter.CorsFilter@598e5cb8, org.springframework.security.web.authentication.logout.LogoutFilter@27fc0217, com.lab.recruitment.config.JwtAuthenticationFilter@32b46831, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@4f4d05b3, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@2bd4780c, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@199806aa, org.springframework.security.web.session.SessionManagementFilter@37364634, org.springframework.security.web.access.ExceptionTranslationFilter@3573e19d, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@7538cfe6]
+2026-04-12 11:47:30 [main] INFO  c.b.m.e.s.MybatisPlusApplicationContextAware - Register ApplicationContext instances org.springframework.boot.web.servlet.context.AnnotationConfigServletWebServerApplicationContext@503ecb24
+2026-04-12 11:47:31 [main] INFO  o.s.b.w.e.tomcat.TomcatWebServer - Tomcat started on port(s): 18090 (http) with context path ''
+2026-04-12 11:47:31 [main] DEBUG o.s.b.a.l.ConditionEvaluationReportLoggingListener - 
 
 
 ============================
@@ -1234,20 +1234,37 @@ Unconditional classes:
 
 
 
-2026-04-11 21:32:35 [main] INFO  c.l.r.LabRecruitmentApplication - Started LabRecruitmentApplication in 7.391 seconds (JVM running for 7.836)
-2026-04-11 21:32:35 [main] DEBUG o.s.b.a.ApplicationAvailabilityBean - Application availability state LivenessState changed to CORRECT
-2026-04-11 21:32:35 [main] DEBUG o.s.b.a.ApplicationAvailabilityBean - Application availability state ReadinessState changed to ACCEPTING_TRAFFIC
-2026-04-11 21:32:35 [scheduling-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing SQL query [SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_attendance_session' AND COLUMN_NAME IN ('session_no', 'sign_code', 'qr_code_content', 'start_time', 'expire_time', 'duration_seconds', 'created_by')]
-2026-04-11 21:32:35 [scheduling-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing SQL query [SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_lab_attendance' AND COLUMN_NAME IN ('session_id', 'checkin_time', 'tag_type', 'export_flag')]
-2026-04-11 21:32:35 [scheduling-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing SQL query [SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_attendance_session_record' AND COLUMN_NAME IN ('session_id', 'lab_id', 'user_id', 'sign_time', 'sign_method', 'sign_code_snapshot', 'create_time', 'deleted')]
-2026-04-11 21:33:03 [http-nio-18090-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-04-11 21:33:03 [http-nio-18090-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
-2026-04-11 21:33:03 [http-nio-18090-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 4 ms
-2026-04-11 22:07:38 [http-nio-18090-exec-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL query
-2026-04-11 22:07:38 [http-nio-18090-exec-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [SELECT GET_LOCK(?, ?)]
-2026-04-11 22:07:38 [http-nio-18090-exec-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL update
-2026-04-11 22:07:38 [http-nio-18090-exec-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [UPDATE t_lab_attendance SET deleted = 1, update_time = NOW() WHERE deleted = 0 AND lab_id = ? AND attendance_date = ?]
-2026-04-11 22:07:38 [http-nio-18090-exec-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL query
-2026-04-11 22:07:38 [http-nio-18090-exec-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [SELECT RELEASE_LOCK(?)]
-2026-04-11 22:07:38 [http-nio-18090-exec-5] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL query
-2026-04-11 22:07:38 [http-nio-18090-exec-5] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [SELECT r.id, r.user_id AS userId, u.real_name AS realName, u.student_id AS studentId, r.sign_time AS signTime, r.sign_method AS signMethod FROM t_attendance_session_record r LEFT JOIN t_user u ON u.id = r.user_id AND u.deleted = 0 WHERE r.deleted = 0 AND r.session_id = ? ORDER BY r.sign_time ASC, r.id ASC]
+2026-04-12 11:47:31 [main] INFO  c.l.r.LabRecruitmentApplication - Started LabRecruitmentApplication in 6.806 seconds (JVM running for 7.119)
+2026-04-12 11:47:31 [main] DEBUG o.s.b.a.ApplicationAvailabilityBean - Application availability state LivenessState changed to CORRECT
+2026-04-12 11:47:31 [main] DEBUG o.s.b.a.ApplicationAvailabilityBean - Application availability state ReadinessState changed to ACCEPTING_TRAFFIC
+2026-04-12 11:47:31 [scheduling-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing SQL query [SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_attendance_session' AND COLUMN_NAME IN ('session_no', 'sign_code', 'qr_code_content', 'start_time', 'expire_time', 'duration_seconds', 'created_by')]
+2026-04-12 11:47:31 [scheduling-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing SQL query [SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_lab_attendance' AND COLUMN_NAME IN ('session_id', 'checkin_time', 'tag_type', 'export_flag')]
+2026-04-12 11:47:31 [scheduling-1] DEBUG o.s.jdbc.core.JdbcTemplate - Executing SQL query [SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 't_attendance_session_record' AND COLUMN_NAME IN ('session_id', 'lab_id', 'user_id', 'sign_time', 'sign_method', 'sign_code_snapshot', 'create_time', 'deleted')]
+2026-04-12 11:47:32 [http-nio-18090-exec-1] INFO  o.a.c.c.C.[Tomcat].[localhost].[/] - Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-04-12 11:47:32 [http-nio-18090-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Initializing Servlet 'dispatcherServlet'
+2026-04-12 11:47:32 [http-nio-18090-exec-1] INFO  o.s.web.servlet.DispatcherServlet - Completed initialization in 1 ms
+2026-04-12 11:47:53 [http-nio-18090-exec-5] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL query
+2026-04-12 11:47:53 [http-nio-18090-exec-5] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [SELECT GET_LOCK(?, ?)]
+2026-04-12 11:47:53 [http-nio-18090-exec-5] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL update
+2026-04-12 11:47:53 [http-nio-18090-exec-5] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [UPDATE t_lab_attendance SET deleted = 1, update_time = NOW() WHERE deleted = 0 AND lab_id = ? AND attendance_date = ?]
+2026-04-12 11:47:53 [http-nio-18090-exec-5] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL query
+2026-04-12 11:47:53 [http-nio-18090-exec-5] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [SELECT RELEASE_LOCK(?)]
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL update
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [INSERT INTO t_lab_attendance (lab_id, user_id, session_id, attendance_date, checkin_time, status, tag_type, reason, confirmed_by, confirm_time, export_flag, deleted, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW(), NOW()) AS incoming ON DUPLICATE KEY UPDATE session_id = incoming.session_id, checkin_time = incoming.checkin_time, status = incoming.status, tag_type = incoming.tag_type, reason = incoming.reason, confirmed_by = incoming.confirmed_by, confirm_time = incoming.confirm_time, export_flag = incoming.export_flag, deleted = 0, update_time = NOW()]
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL update
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [INSERT INTO t_lab_attendance (lab_id, user_id, session_id, attendance_date, checkin_time, status, tag_type, reason, confirmed_by, confirm_time, export_flag, deleted, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW(), NOW()) AS incoming ON DUPLICATE KEY UPDATE session_id = incoming.session_id, checkin_time = incoming.checkin_time, status = incoming.status, tag_type = incoming.tag_type, reason = incoming.reason, confirmed_by = incoming.confirmed_by, confirm_time = incoming.confirm_time, export_flag = incoming.export_flag, deleted = 0, update_time = NOW()]
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL update
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [INSERT INTO t_lab_attendance (lab_id, user_id, session_id, attendance_date, checkin_time, status, tag_type, reason, confirmed_by, confirm_time, export_flag, deleted, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW(), NOW()) AS incoming ON DUPLICATE KEY UPDATE session_id = incoming.session_id, checkin_time = incoming.checkin_time, status = incoming.status, tag_type = incoming.tag_type, reason = incoming.reason, confirmed_by = incoming.confirmed_by, confirm_time = incoming.confirm_time, export_flag = incoming.export_flag, deleted = 0, update_time = NOW()]
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL update
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.JdbcTemplate - Executing prepared SQL statement [INSERT INTO t_lab_attendance (lab_id, user_id, session_id, attendance_date, checkin_time, status, tag_type, reason, confirmed_by, confirm_time, export_flag, deleted, create_time, update_time) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW(), NOW()) AS incoming ON DUPLICATE KEY UPDATE session_id = incoming.session_id, checkin_time = incoming.checkin_time, status = incoming.status, tag_type = incoming.tag_type, reason = incoming.reason, confirmed_by = incoming.confirmed_by, confirm_time = incoming.confirm_time, export_flag = incoming.export_flag, deleted = 0, update_time = NOW()]
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement
+2026-04-12 11:47:54 [http-nio-18090-exec-8] DEBUG o.s.jdbc.core.StatementCreatorUtils - JDBC getParameterType call failed - using fallback method instead: java.sql.SQLException: Parameter metadata not available for the given statement

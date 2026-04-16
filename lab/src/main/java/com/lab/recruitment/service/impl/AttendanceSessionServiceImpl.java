@@ -14,7 +14,7 @@ import com.lab.recruitment.mapper.LabMapper;
 import com.lab.recruitment.mapper.LabMemberMapper;
 import com.lab.recruitment.mapper.UserMapper;
 import com.lab.recruitment.service.AttendanceSessionService;
-import com.lab.recruitment.service.UserAccessService;
+import com.lab.recruitment.support.AttendanceAccessSupport;
 import com.lab.recruitment.support.CurrentUserAccessor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -51,6 +51,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
+
+import static com.lab.recruitment.utils.AttendanceCodeGenerator.generateSignCode;
+import static com.lab.recruitment.utils.TextNormalizer.trimToNull;
 
 @Service
 public class AttendanceSessionServiceImpl implements AttendanceSessionService {
@@ -89,9 +92,6 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     private CurrentUserAccessor currentUserAccessor;
 
     @Autowired
-    private UserAccessService userAccessService;
-
-    @Autowired
     private AttendanceSessionMapper attendanceSessionMapper;
 
     @Autowired
@@ -112,11 +112,14 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Autowired
     private JdbcTemplate jdbcTemplate;
 
+    @Autowired
+    private AttendanceAccessSupport attendanceAccessSupport;
+
     @Override
     @Transactional
     public Map<String, Object> createSession(Long labId, User currentUser) {
         ensureLightweightAttendanceSchemaAvailable();
-        Long scopedLabId = resolveManageableLabId(currentUser, labId);
+        Long scopedLabId = attendanceAccessSupport.resolveManageableLabId(currentUser, labId);
         if (!acquireSessionCreationLock(scopedLabId)) {
             throw new RuntimeException("Failed to acquire attendance session lock");
         }
@@ -162,7 +165,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Override
     public Map<String, Object> getActiveSession(Long labId, User currentUser, boolean includeSensitiveData) {
         ensureLightweightAttendanceSchemaAvailable();
-        Long scopedLabId = resolveReadableLabId(currentUser, labId);
+        Long scopedLabId = attendanceAccessSupport.resolveReadableLabId(currentUser, labId);
         ensureExpiredSessionsFinalizedForLab(scopedLabId);
         AttendanceSession session = findActiveLightweightSession(scopedLabId);
         if (session == null && includeSensitiveData) {
@@ -273,7 +276,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
             throw new RuntimeException("Attendance record does not exist");
         }
 
-        Long scopedLabId = resolveManageableLabId(currentUser, attendance.getLabId());
+        Long scopedLabId = attendanceAccessSupport.resolveManageableLabId(currentUser, attendance.getLabId());
         if (!Objects.equals(scopedLabId, attendance.getLabId())) {
             throw new RuntimeException("No permission to update this attendance record");
         }
@@ -296,7 +299,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Override
     public Map<String, Object> getAttendanceStat(Long labId, String date, User currentUser) {
         ensureLightweightAttendanceSchemaAvailable();
-        Long scopedLabId = resolveManageableLabId(currentUser, labId);
+        Long scopedLabId = attendanceAccessSupport.resolveManageableLabId(currentUser, labId);
         ensureExpiredSessionsFinalizedForLab(scopedLabId);
         String targetDate = normalizeDate(date, LocalDate.now());
         List<LabAttendance> attendanceList = listAttendanceByDate(scopedLabId, targetDate);
@@ -316,7 +319,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Override
     public Map<String, Object> getAttendanceList(Long labId, String date, User currentUser) {
         ensureLightweightAttendanceSchemaAvailable();
-        Long scopedLabId = resolveManageableLabId(currentUser, labId);
+        Long scopedLabId = attendanceAccessSupport.resolveManageableLabId(currentUser, labId);
         ensureExpiredSessionsFinalizedForLab(scopedLabId);
         String targetDate = normalizeDate(date, LocalDate.now());
 
@@ -387,7 +390,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     @Transactional
     public byte[] exportAttendanceExcel(Long labId, String startDate, String endDate, User currentUser) {
         ensureLightweightAttendanceSchemaAvailable();
-        Long scopedLabId = resolveManageableLabId(currentUser, labId);
+        Long scopedLabId = attendanceAccessSupport.resolveManageableLabId(currentUser, labId);
         ensureExpiredSessionsFinalizedForLab(scopedLabId);
 
         LocalDate start = parseDate(startDate, LocalDate.now());
@@ -508,7 +511,7 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
     }
 
     private Map<String, Object> signInternal(Long userId, User currentUser, AttendanceSession session, String signMethod) {
-        ensureStudentMemberOfLab(currentUser, session.getLabId());
+        attendanceAccessSupport.ensureStudentMemberOfLab(currentUser, session.getLabId());
         if (isExpired(session)) {
             finalizeSession(session, SESSION_STATUS_EXPIRED, null);
             throw new RuntimeException("Session expired");
@@ -582,37 +585,36 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
             }
 
             AttendanceSessionRecord sessionRecord = signedRecordMap.get(userId);
-            LabAttendance attendance = findAttendance(session.getLabId(), userId, attendanceDate);
-            if (attendance == null) {
-                attendance = new LabAttendance();
-                attendance.setLabId(session.getLabId());
-                attendance.setUserId(userId);
-                attendance.setAttendanceDate(attendanceDate);
-                attendance.setExportFlag(0);
-            }
-
-            attendance.setSessionId(session.getId());
-            if (sessionRecord != null) {
-                attendance.setStatus(ATTENDANCE_STATUS_SIGNED);
-                attendance.setCheckinTime(sessionRecord.getSignTime());
-                attendance.setTagType(null);
-                attendance.setReason(null);
-                attendance.setConfirmedBy(operatorId);
-                attendance.setConfirmTime(now);
-            } else {
-                attendance.setStatus(ATTENDANCE_STATUS_ABSENT);
-                attendance.setCheckinTime(null);
-                attendance.setTagType(null);
-                attendance.setReason(null);
-                attendance.setConfirmedBy(operatorId);
-                attendance.setConfirmTime(now);
-            }
-
-            if (attendance.getId() == null) {
-                labAttendanceMapper.insert(attendance);
-            } else {
-                labAttendanceMapper.updateById(attendance);
-            }
+            Integer status = sessionRecord != null ? ATTENDANCE_STATUS_SIGNED : ATTENDANCE_STATUS_ABSENT;
+            LocalDateTime checkinTime = sessionRecord == null ? null : sessionRecord.getSignTime();
+            jdbcTemplate.update(
+                    "INSERT INTO t_lab_attendance " +
+                            "(lab_id, user_id, session_id, attendance_date, checkin_time, status, tag_type, reason, " +
+                            "confirmed_by, confirm_time, export_flag, deleted, create_time, update_time) " +
+                            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, NOW(), NOW()) AS incoming " +
+                            "ON DUPLICATE KEY UPDATE " +
+                            "session_id = incoming.session_id, " +
+                            "checkin_time = incoming.checkin_time, " +
+                            "status = incoming.status, " +
+                            "tag_type = incoming.tag_type, " +
+                            "reason = incoming.reason, " +
+                            "confirmed_by = incoming.confirmed_by, " +
+                            "confirm_time = incoming.confirm_time, " +
+                            "export_flag = incoming.export_flag, " +
+                            "deleted = 0, " +
+                            "update_time = NOW()",
+                    session.getLabId(),
+                    userId,
+                    session.getId(),
+                    attendanceDate,
+                    checkinTime,
+                    status,
+                    null,
+                    null,
+                    operatorId,
+                    now,
+                    0
+            );
         }
     }
 
@@ -676,63 +678,17 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
     private AttendanceSession getManagedLightweightSession(Long sessionId, User currentUser) {
         AttendanceSession session = getLightweightSession(sessionId);
-        resolveManageableLabId(currentUser, session.getLabId());
+        attendanceAccessSupport.resolveManageableLabId(currentUser, session.getLabId());
         return session;
     }
 
     private AttendanceSession getReadableLightweightSession(Long sessionId, User currentUser) {
         AttendanceSession session = getLightweightSession(sessionId);
-        Long scopedLabId = resolveReadableLabId(currentUser, session.getLabId());
+        Long scopedLabId = attendanceAccessSupport.resolveReadableLabId(currentUser, session.getLabId());
         if (!Objects.equals(scopedLabId, session.getLabId())) {
             throw new RuntimeException("No permission to access this attendance session");
         }
         return session;
-    }
-
-    private Long resolveManageableLabId(User currentUser, Long requestedLabId) {
-        if (currentUser == null || currentUser.getId() == null) {
-            throw new RuntimeException("Current user is required");
-        }
-        return currentUserAccessor.resolveLabScope(currentUser, requestedLabId);
-    }
-
-    private Long resolveReadableLabId(User currentUser, Long requestedLabId) {
-        if (currentUserAccessor.isStudentIdentity(currentUser)) {
-            Long ownLabId = resolveCurrentUserLabId(currentUser);
-            if (ownLabId == null) {
-                throw new RuntimeException("You are not an active member of any lab");
-            }
-            if (requestedLabId != null && !Objects.equals(ownLabId, requestedLabId)) {
-                throw new RuntimeException("No permission to access another lab");
-            }
-            return ownLabId;
-        }
-        return currentUserAccessor.resolveLabScope(currentUser, requestedLabId);
-    }
-
-    private Long resolveCurrentUserLabId(User currentUser) {
-        if (currentUser == null || currentUser.getId() == null) {
-            return null;
-        }
-        Long managedLabId = userAccessService.resolveManagedLabId(currentUser);
-        if (managedLabId != null) {
-            return managedLabId;
-        }
-        QueryWrapper<LabMember> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("user_id", currentUser.getId())
-                .eq("deleted", 0)
-                .eq("status", MEMBER_STATUS_ACTIVE)
-                .orderByAsc("id")
-                .last("LIMIT 1");
-        LabMember labMember = labMemberMapper.selectOne(queryWrapper);
-        return labMember == null ? null : labMember.getLabId();
-    }
-
-    private void ensureStudentMemberOfLab(User currentUser, Long labId) {
-        Long ownLabId = resolveCurrentUserLabId(currentUser);
-        if (ownLabId == null || !Objects.equals(ownLabId, labId)) {
-            throw new RuntimeException("You do not belong to this lab");
-        }
     }
 
     private void ensureExpiredSessionsFinalizedForLab(Long labId) {
@@ -857,16 +813,6 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
                 .eq("deleted", 0)
                 .last("LIMIT 1");
         return attendanceSessionRecordMapper.selectOne(queryWrapper);
-    }
-
-    private LabAttendance findAttendance(Long labId, Long userId, String attendanceDate) {
-        QueryWrapper<LabAttendance> queryWrapper = new QueryWrapper<>();
-        queryWrapper.eq("lab_id", labId)
-                .eq("user_id", userId)
-                .eq("attendance_date", attendanceDate)
-                .eq("deleted", 0)
-                .last("LIMIT 1");
-        return labAttendanceMapper.selectOne(queryWrapper);
     }
 
     private List<LabAttendance> listAttendanceByDate(Long labId, String attendanceDate) {
@@ -1014,14 +960,6 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
         return "attendance_session_create_" + labId;
     }
 
-    private String generateSignCode(int length) {
-        StringBuilder builder = new StringBuilder(length);
-        for (int index = 0; index < length; index++) {
-            builder.append(ThreadLocalRandom.current().nextInt(10));
-        }
-        return builder.toString();
-    }
-
     private String buildQrCodeContent(Long sessionId) {
         if (sessionId == null) {
             return "/m/student/attendance";
@@ -1126,14 +1064,6 @@ public class AttendanceSessionServiceImpl implements AttendanceSessionService {
 
     private String formatDateTime(LocalDateTime dateTime) {
         return dateTime == null ? "" : dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
-    }
-
-    private String trimToNull(String value) {
-        if (!StringUtils.hasText(value)) {
-            return null;
-        }
-        String trimmed = value.trim();
-        return trimmed.isEmpty() ? null : trimmed;
     }
 
     private Long getLongValue(Object value) {
