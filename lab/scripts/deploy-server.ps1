@@ -51,9 +51,14 @@ if (-not (Test-Path $plink)) {
 try {
     if (-not $SkipBackendBuild) {
         Invoke-Step "Build backend" {
-            & mvn "-DskipTests" "package"
-            if ($LASTEXITCODE -ne 0) {
-                throw "Backend build failed"
+            Push-Location $projectRoot
+            try {
+                & mvn "-DskipTests" "package"
+                if ($LASTEXITCODE -ne 0) {
+                    throw "Backend build failed"
+                }
+            } finally {
+                Pop-Location
             }
         }
     }

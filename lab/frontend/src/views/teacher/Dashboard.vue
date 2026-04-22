@@ -139,6 +139,8 @@ const loadDashboard = async () => {
     applyTotal.value = applyRes.data?.total || 0
     notices.value = noticeRes.data || []
     stats.value = statsRes.data || {}
+  } catch (error) {
+    return
   } finally {
     loading.value = false
   }

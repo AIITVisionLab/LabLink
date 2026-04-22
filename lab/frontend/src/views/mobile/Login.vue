@@ -181,6 +181,7 @@ import { Lock, Message, User } from '@element-plus/icons-vue'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { login, resetPassword, sendPasswordResetCode } from '@/api/auth'
 import { useUserStore } from '@/stores/user'
+import { clearAuth } from '@/utils/auth'
 import { ensureAuthContext } from '@/utils/auth-context'
 import { resolvePortalHome, setPortalSurface } from '@/utils/portal'
 
@@ -349,6 +350,10 @@ const handleResetPassword = async () => {
 }
 
 const handleLogin = async () => {
+  if (loading.value) {
+    return
+  }
+
   if (!loginFormRef.value) {
     return
   }
@@ -361,6 +366,8 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
+    userStore.clearUserInfo()
+    clearAuth()
     const response = await login(loginForm)
     const userData = response.data
     setPortalSurface('mobile')
@@ -377,6 +384,8 @@ const handleLogin = async () => {
 }
 
 onMounted(() => {
+  userStore.clearUserInfo()
+  clearAuth()
   setPortalSurface('mobile')
 })
 

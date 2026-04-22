@@ -2,6 +2,10 @@ server:
   port: ${SERVER_PORT:8080}
 
 spring:
+  config:
+    import:
+      - optional:file:.env.local[.properties]
+      - optional:file:lab/.env.local[.properties]
   application:
     name: aiit-lab-management-platform
   flyway:
@@ -12,9 +16,9 @@ spring:
     validate-on-migrate: false
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: ${DB_URL:jdbc:mysql://localhost:3306/lab_recruitment?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true}
+    url: ${DB_URL:jdbc:mysql://localhost:3307/lab_recruitment?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=GMT%2B8&allowPublicKeyRetrieval=true}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:123456}
+    password: ${DB_PASSWORD:${MYSQL_ROOT_PASSWORD:123456}}
   mail:
     host: ${MAIL_HOST:smtp.qq.com}
     port: ${MAIL_PORT:465}
@@ -115,6 +119,9 @@ app:
       - http://101.35.79.76
       - https://101.35.79.76
     rate-limit:
+      login:
+        max-requests: ${APP_SECURITY_RATE_LIMIT_LOGIN_MAX_REQUESTS:30}
+        window-seconds: ${APP_SECURITY_RATE_LIMIT_LOGIN_WINDOW_SECONDS:60}
       max-tracked-clients: ${APP_SECURITY_RATE_LIMIT_MAX_TRACKED_CLIENTS:4096}
       bucket-idle-seconds: ${APP_SECURITY_RATE_LIMIT_BUCKET_IDLE_SECONDS:1800}
   email-auth:

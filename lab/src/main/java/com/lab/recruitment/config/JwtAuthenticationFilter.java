@@ -15,15 +15,47 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Set;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Set<String> PUBLIC_AUTH_PATHS = Set.of(
+            "/auth/login",
+            "/auth/register",
+            "/auth/register/send-code",
+            "/auth/teacher-register",
+            "/auth/teacher-register/send-code",
+            "/auth/password-reset/send-code",
+            "/auth/password-reset/confirm",
+            "/user/login",
+            "/user/register",
+            "/api/auth/login",
+            "/api/auth/register",
+            "/api/auth/register/send-code",
+            "/api/auth/teacher-register",
+            "/api/auth/teacher-register/send-code",
+            "/api/auth/password-reset/send-code",
+            "/api/auth/password-reset/confirm",
+            "/api/user/login",
+            "/api/user/register"
+    );
 
     @Autowired
     private JwtUtils jwtUtils;
 
     @Autowired
     private UserDetailsService userDetailsService;
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String requestUri = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        String requestPath = requestUri.startsWith(contextPath)
+                ? requestUri.substring(contextPath.length())
+                : requestUri;
+        return PUBLIC_AUTH_PATHS.contains(requestPath);
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {

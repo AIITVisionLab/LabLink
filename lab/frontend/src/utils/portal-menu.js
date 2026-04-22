@@ -57,6 +57,79 @@ const ADMIN_EXAM_HUB = { path: '/admin/exam-hub', label: '笔试中心', icon: '
 const ADMIN_AI_MODULES = { path: '/admin/ai-interview-modules', label: 'AI 面试模块', icon: 'ChatDotRound' }
 const ADMIN_AI_RECORDS = { path: '/admin/ai-interview-records', label: 'AI 面试记录', icon: 'DataBoard' }
 const TEACHER_EXAM_HUB = { path: '/teacher/exam-hub', label: '笔试中心', icon: 'EditPen' }
+const ADMIN_MENU_GROUPS = [
+  { key: 'overview', label: '总览与分析', icon: 'DataBoard' },
+  { key: 'organization', label: '组织管理', icon: 'OfficeBuilding' },
+  { key: 'approval', label: '审批与招新', icon: 'Tickets' },
+  { key: 'attendance', label: '考勤中心', icon: 'Calendar' },
+  { key: 'exam', label: '考试与面试', icon: 'EditPen' },
+  { key: 'resources', label: '资源与通知', icon: 'Files' },
+  { key: 'system', label: '系统设置', icon: 'UserFilled' },
+  { key: 'misc', label: '其他功能', icon: 'FolderOpened' }
+]
+
+function menuMatchesPath(currentPath = '', targetPath = '') {
+  return currentPath === targetPath || currentPath.startsWith(`${targetPath}/`)
+}
+
+function resolveAdminMenuGroupKey(path = '') {
+  if (['/admin/dashboard', '/admin/search', '/admin/statistics'].some((item) => menuMatchesPath(path, item))) {
+    return 'overview'
+  }
+
+  if (['/admin/colleges', '/admin/labs', '/admin/members'].some((item) => menuMatchesPath(path, item))) {
+    return 'organization'
+  }
+
+  if (
+    [
+      '/admin/create-applies',
+      '/admin/teacher-register-applies',
+      '/admin/applications',
+      '/admin/plans',
+      '/admin/profiles'
+    ].some((item) => menuMatchesPath(path, item))
+  ) {
+    return 'approval'
+  }
+
+  if (
+    [
+      '/admin/attendance-tasks',
+      '/admin/attendance-dashboard',
+      '/admin/attendance-stats',
+      '/admin/attendance-anomaly',
+      '/admin/attendance-leave'
+    ].some((item) => menuMatchesPath(path, item))
+  ) {
+    return 'attendance'
+  }
+
+  if (
+    [
+      '/admin/exam-hub',
+      '/admin/exam-manage',
+      '/admin/question-bank',
+      '/admin/paper-compose',
+      '/admin/grading-center',
+      '/admin/exam-statistics',
+      '/admin/ai-interview-modules',
+      '/admin/ai-interview-records'
+    ].some((item) => menuMatchesPath(path, item))
+  ) {
+    return 'exam'
+  }
+
+  if (['/admin/workspace', '/admin/devices', '/admin/notices', '/admin/notifications'].some((item) => menuMatchesPath(path, item))) {
+    return 'resources'
+  }
+
+  if (['/admin/audit', '/admin/profile'].some((item) => menuMatchesPath(path, item))) {
+    return 'system'
+  }
+
+  return 'misc'
+}
 
 export function resolveDesktopMenuItems(items = [], fallbackItems = []) {
   const normalizedItems = normalizeItems(items, 'path')
@@ -110,4 +183,30 @@ export function resolveMobileMenuItems(items = [], fallbackItems = []) {
     result.splice(insertIdx, 0, { ...mobileCheckIn, icon: MENU_ICON_MAP.Camera })
   }
   return result
+}
+
+export function resolveMenuActivePath(currentPath = '', items = []) {
+  const matchedItem = items
+    .filter((item) => menuMatchesPath(currentPath, item.path))
+    .sort((a, b) => b.path.length - a.path.length)[0]
+
+  return matchedItem?.path || currentPath
+}
+
+export function resolveAdminDesktopMenuGroups(items = [], fallbackItems = []) {
+  const menuItems = resolveDesktopMenuItems(items, fallbackItems).filter((item) => item.path?.startsWith('/admin/'))
+  const groupedItems = new Map(ADMIN_MENU_GROUPS.map((group) => [group.key, []]))
+
+  menuItems.forEach((item) => {
+    const groupKey = resolveAdminMenuGroupKey(item.path)
+    groupedItems.get(groupKey)?.push(item)
+  })
+
+  return ADMIN_MENU_GROUPS
+    .map((group) => ({
+      ...group,
+      icon: MENU_ICON_MAP[group.icon] || DataBoard,
+      items: groupedItems.get(group.key) || []
+    }))
+    .filter((group) => group.items.length > 0)
 }

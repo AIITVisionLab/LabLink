@@ -162,6 +162,8 @@ const loadPageData = async () => {
     overview.value = overviewRes.data || {}
     notices.value = noticeRes.data || []
     unreadCount.value = unreadRes.data?.unreadCount || 0
+  } catch (error) {
+    return
   } finally {
     loading.value = false
   }

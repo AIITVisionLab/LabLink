@@ -102,14 +102,18 @@ const metricCards = computed(() => {
 })
 
 const loadDashboard = async () => {
-  const [plansRes, noticeRes, applyRes] = await Promise.all([
-    getActiveRecruitPlans(),
-    getLatestNotices({ limit: 6 }),
-    getMyLabApplyPage({ pageNum: 1, pageSize: 5 })
-  ])
-  activePlans.value = plansRes.data || []
-  notices.value = noticeRes.data || []
-  myApplies.value = applyRes.data.records || []
+  try {
+    const [plansRes, noticeRes, applyRes] = await Promise.all([
+      getActiveRecruitPlans(),
+      getLatestNotices({ limit: 6 }),
+      getMyLabApplyPage({ pageNum: 1, pageSize: 5 })
+    ])
+    activePlans.value = plansRes.data || []
+    notices.value = noticeRes.data || []
+    myApplies.value = applyRes.data.records || []
+  } catch (error) {
+    return
+  }
 }
 
 const formatDateTime = (value) => (value ? dayjs(value).format('YYYY-MM-DD HH:mm') : '-')

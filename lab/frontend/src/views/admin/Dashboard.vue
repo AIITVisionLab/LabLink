@@ -230,9 +230,15 @@ const secondaryPanelTitle = computed(() =>
 )
 
 const loadDashboard = async () => {
-  const [statsRes, noticeRes] = await Promise.all([getOverviewStatistics(), getLatestNotices({ limit: 6 })])
-  overview.value = statsRes.data || {}
-  notices.value = noticeRes.data || []
+  try {
+    const [statsRes, noticeRes] = await Promise.all([getOverviewStatistics(), getLatestNotices({ limit: 6 })])
+    overview.value = statsRes.data || {}
+    notices.value = noticeRes.data || []
+  } catch (error) {
+    if (error?.response?.status !== 401) {
+      ElMessage.error(error?.response?.data?.message || '加载仪表盘失败')
+    }
+  }
 }
 
 const attendanceSummaryList = (summary) => {

@@ -6,11 +6,26 @@
           <BrandLogo title="LabLink" subtitle="高校实验室管理平台" tone="dark" size="sm" />
         </div>
 
-        <el-menu :default-active="$route.fullPath" router class="sidebar-menu" :collapse="false">
-          <el-menu-item v-for="item in menuItems" :key="item.path" :index="item.path">
-            <el-icon><component :is="item.icon" /></el-icon>
-            <span>{{ item.label }}</span>
-          </el-menu-item>
+        <el-menu
+          ref="menuRef"
+          :default-active="activeMenuPath"
+          :default-openeds="activeGroupKey ? [activeGroupKey] : []"
+          :unique-opened="true"
+          router
+          class="sidebar-menu grouped-menu"
+          :collapse="false"
+        >
+          <el-sub-menu v-for="group in menuGroups" :key="group.key" :index="group.key">
+            <template #title>
+              <el-icon><component :is="group.icon" /></el-icon>
+              <span>{{ group.label }}</span>
+            </template>
+
+            <el-menu-item v-for="item in group.items" :key="item.path" :index="item.path">
+              <el-icon><component :is="item.icon" /></el-icon>
+              <span>{{ item.label }}</span>
+            </el-menu-item>
+          </el-sub-menu>
         </el-menu>
       </div>
     </aside>
@@ -56,16 +71,17 @@
 <script setup>
 import { Expand, Fold } from '@element-plus/icons-vue'
 import { ElMessageBox } from 'element-plus'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import BrandLogo from '@/components/BrandLogo.vue'
 import { useUserStore } from '@/stores/user'
 import { ensureAuthContext } from '@/utils/auth-context'
-import { resolveDesktopMenuItems } from '@/utils/portal-menu'
+import { resolveAdminDesktopMenuGroups, resolveMenuActivePath } from '@/utils/portal-menu'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
+const menuRef = ref(null)
 
 const isMobile = ref(typeof window !== 'undefined' ? window.innerWidth <= 960 : false)
 const isCollapse = ref(isMobile.value)
@@ -98,6 +114,16 @@ const canAuditCreateApplies = computed(() => userStore.hasPermission('lab:create
 const canAuditTeacherRegister = computed(() => userStore.hasPermission('teacher:register:audit'))
 const canManageMembers = computed(() => userStore.hasPermission('member:manage'))
 const canManageNotices = computed(() => userStore.hasPermission('notice:manage'))
+const canManageLabDomain = computed(() => isSchoolDirector.value || isCollegeManager.value || isLabManager.value)
+const canReviewProfiles = computed(() => userStore.hasPermission('profile:review') || canManageLabDomain.value)
+const canViewAudit = computed(() => userStore.hasPermission('audit:view') || canManageLabDomain.value)
+const canViewStatistics = computed(
+  () =>
+    userStore.hasPermission('statistics:school:view') ||
+    userStore.hasPermission('statistics:college:view') ||
+    userStore.hasPermission('statistics:lab:view') ||
+    canManageLabDomain.value
+)
 
 const roleLabel = computed(() => {
   if (isSchoolDirector.value) return '学校管理员'
@@ -113,43 +139,61 @@ const fallbackMenuItems = computed(() =>
     { path: '/admin/dashboard', label: '工作台', icon: 'DataBoard' },
     isSchoolDirector.value || isCollegeManager.value ? { path: '/admin/search', label: '综合搜索', icon: 'Search' } : null,
     isSchoolDirector.value ? { path: '/admin/colleges', label: '学院管理', icon: 'OfficeBuilding' } : null,
-    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
-      ? { path: '/admin/labs', label: '实验室管理', icon: 'FolderOpened' }
-      : null,
+    canManageLabDomain.value ? { path: '/admin/labs', label: '实验室管理', icon: 'FolderOpened' } : null,
+    canManageMembers.value ? { path: '/admin/members', label: '成员管理', icon: 'UserFilled' } : null,
+    canManageLabDomain.value ? { path: '/admin/plans', label: '招新计划', icon: 'Tickets' } : null,
     canAuditCreateApplies.value ? { path: '/admin/create-applies', label: '创建审批', icon: 'Tickets' } : null,
     canAuditTeacherRegister.value ? { path: '/admin/teacher-register-applies', label: '教师注册审批', icon: 'UserFilled' } : null,
-    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
-      ? { path: '/admin/attendance-tasks', label: '考勤管理', icon: 'Calendar' }
-      : null,
-    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
-      ? { path: '/admin/applications', label: '入组申请', icon: 'Tickets' }
-      : null,
-    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
-      ? { path: '/admin/workspace', label: '资料空间', icon: 'Files' }
-      : null,
-    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
-      ? { path: '/admin/devices', label: '设备管理', icon: 'Monitor' }
-      : null,
-    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
-      ? { path: '/admin/statistics', label: '统计分析', icon: 'TrendCharts' }
-      : null,
-    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
-      ? { path: '/admin/profiles', label: '成员资料', icon: 'Files' }
-      : null,
-    canManageMembers.value ? { path: '/admin/members', label: '成员管理', icon: 'UserFilled' } : null,
+    canManageLabDomain.value ? { path: '/admin/applications', label: '入组申请', icon: 'Tickets' } : null,
+    canReviewProfiles.value ? { path: '/admin/profiles', label: '资料审核', icon: 'Files' } : null,
+    canManageLabDomain.value ? { path: '/admin/attendance-dashboard', label: '今日看板', icon: 'DataBoard' } : null,
+    canManageLabDomain.value ? { path: '/admin/attendance-tasks', label: '考勤管理', icon: 'Calendar' } : null,
+    canManageLabDomain.value ? { path: '/admin/attendance-stats', label: '考勤统计', icon: 'TrendCharts' } : null,
+    canManageLabDomain.value ? { path: '/admin/attendance-anomaly', label: '异常处理', icon: 'Tickets' } : null,
+    canManageLabDomain.value ? { path: '/admin/attendance-leave', label: '请假审批', icon: 'UserFilled' } : null,
+    canManageLabDomain.value ? { path: '/admin/exam-hub', label: '笔试中心', icon: 'EditPen' } : null,
+    canManageLabDomain.value ? { path: '/admin/exam-manage', label: '笔试管理', icon: 'EditPen' } : null,
+    canManageLabDomain.value ? { path: '/admin/question-bank', label: '题库管理', icon: 'Files' } : null,
+    canManageLabDomain.value ? { path: '/admin/paper-compose', label: '组卷', icon: 'EditPen' } : null,
+    canManageLabDomain.value ? { path: '/admin/grading-center', label: '阅卷中心', icon: 'EditPen' } : null,
+    canManageLabDomain.value ? { path: '/admin/exam-statistics', label: '成绩统计', icon: 'TrendCharts' } : null,
+    canManageLabDomain.value ? { path: '/admin/ai-interview-modules', label: 'AI 面试模块', icon: 'ChatDotRound' } : null,
+    canManageLabDomain.value ? { path: '/admin/ai-interview-records', label: 'AI 面试记录', icon: 'DataBoard' } : null,
+    canManageLabDomain.value ? { path: '/admin/workspace', label: '资料空间', icon: 'Files' } : null,
+    canManageLabDomain.value ? { path: '/admin/devices', label: '设备管理', icon: 'Monitor' } : null,
     canManageNotices.value ? { path: '/admin/notices', label: '公告管理', icon: 'Bell' } : null,
-    isSchoolDirector.value || isCollegeManager.value || isLabManager.value
-      ? { path: '/admin/audit', label: '审计日志', icon: 'Tickets' }
-      : null,
+    canViewStatistics.value ? { path: '/admin/statistics', label: '统计分析', icon: 'TrendCharts' } : null,
+    canViewAudit.value ? { path: '/admin/audit', label: '审计日志', icon: 'Tickets' } : null,
     { path: '/admin/notifications', label: '消息中心', icon: 'Bell' },
     { path: '/admin/profile', label: '个人资料', icon: 'UserFilled' }
   ].filter(Boolean)
 )
 
-const menuItems = computed(() => resolveDesktopMenuItems(userStore.menus, fallbackMenuItems.value))
+const menuGroups = computed(() => resolveAdminDesktopMenuGroups(userStore.menus, fallbackMenuItems.value))
+const flatMenuItems = computed(() => menuGroups.value.flatMap((group) => group.items))
+const activeMenuPath = computed(() => resolveMenuActivePath(route.path, flatMenuItems.value))
+const activeGroupKey = computed(
+  () => menuGroups.value.find((group) => group.items.some((item) => item.path === activeMenuPath.value))?.key || ''
+)
 
 const ensureContext = async () => {
   await ensureAuthContext(userStore, { force: true })
+}
+
+const syncOpenedGroup = async () => {
+  if (!activeGroupKey.value) {
+    return
+  }
+
+  await nextTick()
+
+  menuGroups.value.forEach((group) => {
+    if (group.key === activeGroupKey.value) {
+      menuRef.value?.open?.(group.key)
+      return
+    }
+    menuRef.value?.close?.(group.key)
+  })
 }
 
 const handleCommand = async (command) => {
@@ -168,13 +212,19 @@ watch(
   () => route.fullPath,
   () => {
     closeSidebar()
+    syncOpenedGroup()
   }
 )
+
+watch(menuGroups, () => {
+  syncOpenedGroup()
+})
 
 onMounted(() => {
   updateViewport()
   window.addEventListener('resize', updateViewport)
   ensureContext()
+  syncOpenedGroup()
 })
 
 onBeforeUnmount(() => {
@@ -236,21 +286,66 @@ onBeforeUnmount(() => {
 }
 
 .sidebar-menu :deep(.el-menu-item) {
-  height: 44px;
-  border-radius: 8px;
-  color: #333333;
+  height: 42px;
+  border-radius: 10px;
+  color: #475569;
   margin-bottom: 4px;
   font-size: 14px;
 }
 
 .sidebar-menu :deep(.el-menu-item:hover) {
-  background: #ececec;
+  background: #e7eef6;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active) {
-  color: #000000;
-  background: #ececec;
+  color: #0f766e;
+  background: #ffffff;
   font-weight: 600;
+  box-shadow: 0 8px 20px rgba(15, 118, 110, 0.12);
+}
+
+.grouped-menu :deep(.el-sub-menu) {
+  margin-bottom: 10px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.9);
+}
+
+.grouped-menu :deep(.el-sub-menu__title) {
+  height: 48px;
+  border-radius: 16px;
+  color: #0f172a;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 0 14px;
+}
+
+.grouped-menu :deep(.el-sub-menu__title:hover) {
+  background: #eff6ff;
+}
+
+.grouped-menu :deep(.el-sub-menu__title .el-icon) {
+  color: #0f766e;
+}
+
+.grouped-menu :deep(.el-sub-menu.is-opened) {
+  background: linear-gradient(180deg, rgba(240, 253, 250, 0.96), rgba(255, 255, 255, 0.92));
+  box-shadow: inset 0 0 0 1px rgba(20, 184, 166, 0.12);
+}
+
+.grouped-menu :deep(.el-menu--inline) {
+  background: transparent;
+  padding: 0 8px 10px;
+}
+
+.grouped-menu :deep(.el-sub-menu .el-menu-item) {
+  margin-left: 26px;
+  margin-right: 4px;
+}
+
+.grouped-menu :deep(.el-sub-menu__icon-arrow) {
+  color: #94a3b8;
 }
 
 .main-shell {

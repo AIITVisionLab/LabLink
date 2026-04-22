@@ -154,6 +154,7 @@ docker compose --env-file .env.cloud -f docker-compose.cloud.yml up -d --build
 ## 相关文档
 
 - [STARTUP.md](/C:/Users/cjh/IdeaProjects/lab/docs/STARTUP.md)
+- [TEST-ACCOUNTS.md](/C:/Users/cjh/IdeaProjects/Lablink1/lab/docs/TEST-ACCOUNTS.md)
 - [AIIT-SCHOOL-EDITION.md](/C:/Users/cjh/IdeaProjects/lab/docs/AIIT-SCHOOL-EDITION.md)
 - [application.yml](/C:/Users/cjh/IdeaProjects/lab/src/main/resources/application.yml)
 - [init.sql](/C:/Users/cjh/IdeaProjects/lab/src/main/resources/init.sql)
